@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "tailwindcss";
+@reference "tailwindcss";
+/* Esta es la clave que encontraste en la documentación */
+
+@layer base {
+    body {
+        @apply bg-slate-50 text-slate-900 transition-colors duration-300 m-0 p-0;
+    }
+
+    html.dark body {
+        @apply bg-slate-950 text-slate-100;
+    }
+}
+
+/* Compatibilidad con Tailwind v4 para modo oscuro manual por clase */
+@custom-variant dark (&:where(.dark, .dark *));
