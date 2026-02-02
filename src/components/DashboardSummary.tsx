@@ -4,9 +4,20 @@ import { TrendingUp, TrendingDown, PiggyBank, Briefcase } from 'lucide-react';
 
 interface DashboardSummaryProps {
     refreshTrigger: number;
+    userName?: string;
 }
 
-export default function DashboardSummary({ refreshTrigger }: DashboardSummaryProps) {
+const MOTIVATIONAL_QUOTES = [
+    "Hoy es un buen día para invertir",
+    "El control financiero es el camino a la libertad",
+    "Cada pequeño ahorro cuenta para tu futuro",
+    "Gestiona tu energía vital con sabiduría",
+    "El dinero es una herramienta, no el objetivo",
+    "Invierte en ti mismo, es la mejor inversión",
+    "La paciencia es clave en el crecimiento financiero"
+];
+
+export default function DashboardSummary({ refreshTrigger, userName }: DashboardSummaryProps) {
     const [totals, setTotals] = useState({
         Ganar: 0,
         Gastar: 0,
@@ -14,6 +25,12 @@ export default function DashboardSummary({ refreshTrigger }: DashboardSummaryPro
         Invertir: 0,
     });
     const [loading, setLoading] = useState(true);
+    const [quote, setQuote] = useState('');
+
+    useEffect(() => {
+        // Set random quote only on mount to avoid unnecessary re-renders or changes
+        setQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
+    }, []);
 
     useEffect(() => {
         const fetchTotals = async () => {
@@ -64,31 +81,42 @@ export default function DashboardSummary({ refreshTrigger }: DashboardSummaryPro
     }
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {cards.map((card) => (
-                <div
-                    key={card.id}
-                    className={`p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 dark:bg-slate-900 transition-all duration-300 hover:shadow-md
-                        ${card.id === 'Invertir' ? 'col-span-full md:col-span-1 border-emerald-100 dark:border-emerald-900/30' : ''}`}
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className={`p-2 rounded-lg ${card.bg} ${card.color}`}>
-                            {card.icon}
+        <div className="mb-8">
+            <div className="mb-6 animate-fade-in">
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
+                    Hola, <span className="text-blue-600 dark:text-blue-400">{userName || 'Usuario'}</span>
+                </h1>
+                <p className="text-slate-500 dark:text-slate-400 italic text-sm">
+                    "{quote}"
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {cards.map((card) => (
+                    <div
+                        key={card.id}
+                        className={`p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 dark:bg-slate-900 transition-all duration-300 hover:shadow-md
+                            ${card.id === 'Invertir' ? 'col-span-full md:col-span-1 border-emerald-100 dark:border-emerald-900/30' : ''}`}
+                    >
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className={`p-2 rounded-lg ${card.bg} ${card.color}`}>
+                                {card.icon}
+                            </div>
+                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                {card.label}
+                            </span>
                         </div>
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            {card.label}
-                        </span>
+                        <div className="mt-2">
+                            <span className={`text-2xl font-bold ${card.color}`}>
+                                ${card.amount.toLocaleString('es-CO')}
+                            </span>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                                +0% este mes
+                            </p>
+                        </div>
                     </div>
-                    <div className="mt-2">
-                        <span className={`text-2xl font-bold ${card.color}`}>
-                            ${card.amount.toLocaleString('es-CO')}
-                        </span>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                            +0% este mes
-                        </p>
-                    </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     );
 }

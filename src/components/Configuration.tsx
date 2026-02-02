@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Trash2, AlertTriangle, CheckCircle, Moon, Sun, LogOut } from 'lucide-react';
 
 interface ConfigurationProps {
     onTruncateComplete: () => void;
+    toggleTheme: () => void;
+    currentTheme: 'light' | 'dark';
 }
 
-export default function Configuration({ onTruncateComplete }: ConfigurationProps) {
+export default function Configuration({ onTruncateComplete, toggleTheme, currentTheme }: ConfigurationProps) {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
@@ -25,7 +27,7 @@ export default function Configuration({ onTruncateComplete }: ConfigurationProps
         try {
             // First, fetch all IDs to allow for a safe delete (avoiding 'delete all' restriction)
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("No authentitcated user");
+            if (!user) throw new Error("No authenticated user");
 
             const { data: records, error: fetchError } = await supabase
                 .from('transacciones')
@@ -65,20 +67,66 @@ export default function Configuration({ onTruncateComplete }: ConfigurationProps
         }
     };
 
+    const handleLogout = async () => {
+        if (window.confirm('¿Seguro que quieres cerrar sesión?')) {
+            await supabase.auth.signOut();
+        }
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-slate-800">Configuración del Sistema</h2>
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Configuración del Sistema</h2>
 
-            <div className="bg-white rounded-xl shadow-lg border border-red-100 overflow-hidden">
-                <div className="p-6 border-b border-red-50 bg-red-50/50">
-                    <div className="flex items-center gap-3 text-red-600">
+            {/* General Settings */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white">General</h3>
+                </div>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                        onClick={toggleTheme}
+                        className="flex items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-300">
+                                {currentTheme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                            </div>
+                            <div className="text-left">
+                                <span className="block font-bold text-slate-700 dark:text-slate-200">Tema</span>
+                                <span className="text-xs text-slate-500">
+                                    {currentTheme === 'light' ? 'Cambiar a Modo Oscuro' : 'Cambiar a Modo Claro'}
+                                </span>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-300 group-hover:bg-red-50 group-hover:text-red-500 dark:group-hover:bg-red-900/20 dark:group-hover:text-red-400 transition-colors">
+                                <LogOut size={20} />
+                            </div>
+                            <div className="text-left">
+                                <span className="block font-bold text-slate-700 dark:text-slate-200 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">Cerrar Sesión</span>
+                                <span className="text-xs text-slate-500">Salir de la aplicación</span>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-red-100 dark:border-red-900/30 overflow-hidden">
+                <div className="p-6 border-b border-red-50 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
+                    <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
                         <AlertTriangle size={24} />
                         <h3 className="font-bold text-lg">Zona de Peligro</h3>
                     </div>
                 </div>
 
                 <div className="p-6">
-                    <p className="text-slate-600 mb-6 max-w-2xl">
+                    <p className="text-slate-600 dark:text-slate-300 mb-6 max-w-2xl">
                         Aquí puedes reiniciar completamente la aplicación. Esta acción eliminará permanentemente todas las transacciones, restableciendo el saldo a cero. Úsalo solo si deseas comenzar desde cero.
                     </p>
 
@@ -87,7 +135,7 @@ export default function Configuration({ onTruncateComplete }: ConfigurationProps
                             onClick={handleReset}
                             disabled={loading}
                             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all
-                                ${loading ? 'bg-slate-400' : 'bg-red-600 hover:bg-red-700 hover:shadow-lg hover:ring-4 ring-red-100'}`}
+                                ${loading ? 'bg-slate-400' : 'bg-red-600 hover:bg-red-700 hover:shadow-lg hover:ring-4 ring-red-100 dark:ring-red-900/30'}`}
                         >
                             {loading ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -98,19 +146,13 @@ export default function Configuration({ onTruncateComplete }: ConfigurationProps
                         </button>
 
                         {status === 'success' && (
-                            <div className="text-emerald-600 flex items-center gap-2 font-medium animate-fade-in">
+                            <div className="text-emerald-600 dark:text-emerald-400 flex items-center gap-2 font-medium animate-fade-in">
                                 <CheckCircle size={20} />
                                 <span>¡Sistema reiniciado con éxito!</span>
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
-
-            {/* Future settings placeholders could go here */}
-            <div className="bg-white rounded-xl shadow border border-slate-100 p-6 opacity-50 pointer-events-none grayscale">
-                <h3 className="font-bold text-slate-700 mb-2">Preferencias (Próximamente)</h3>
-                <p className="text-sm text-slate-500">Opciones de moneda, temas y exportación de datos.</p>
             </div>
         </div>
     );
