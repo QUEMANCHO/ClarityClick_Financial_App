@@ -70,8 +70,11 @@ const App: React.FC = () => {
   }, [session?.user?.id]);
 
   const checkProfile = async (userId: string) => {
+    // ESTABILIZACIÓN: Si ya tenemos el nombre, no volver a consultar
+    if (userName) return;
+
     // Prevent re-checking if we just checked this user
-    if (profileCheckedRef.current === userId && userName) return;
+    if (profileCheckedRef.current === userId) return;
 
     try {
       const { data, error } = await supabase

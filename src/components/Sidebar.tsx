@@ -47,9 +47,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
             )}
 
-            {/* Sidebar (Desktop: Fixed, Mobile: Fixed Drawer) */}
+            {/* Sidebar (Desktop: Sticky, Mobile: Fixed Drawer) */}
             <aside
-                className={`flex flex-col w-64 bg-slate-900 text-white h-screen fixed top-0 left-0 border-r border-slate-800 shadow-xl overflow-y-auto z-50 transition-transform duration-300 ease-in-out
+                className={`flex flex-col w-64 bg-slate-900 text-white h-screen fixed lg:sticky top-0 left-0 border-r border-slate-800 shadow-xl overflow-y-auto z-50 transition-transform duration-300 ease-in-out
                 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 `}
             >

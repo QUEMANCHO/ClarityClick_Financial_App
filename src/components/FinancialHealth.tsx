@@ -57,19 +57,15 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
 
                 setTotals({ ganar: ingresos, ahorrar: ahorro, invertir: inversion });
 
-                if (ingresos > 0) {
-                    // Formula: (Ahorro + Inversión) / (Ingresos) * 100
-                    const savingsRate = ((ahorro + inversion) / ingresos) * 100;
-                    // Ensure not NaN and finite
-                    if (Number.isFinite(savingsRate)) {
-                        setScore(Math.min(savingsRate, 100));
-                    } else {
-                        setScore(0);
-                    }
-                } else {
-                    // Avoid division by zero
-                    setScore(0);
-                }
+                // Formula: ((ahorro + inversion) / (ingresos > 0 ? ingresos : 1)) * 100
+                // AJUSTE: Si no hay ingresos pero sí ahorro/inversión, la salud es Excelente (100%), no 0.
+                const denominator = ingresos > 0 ? ingresos : 1;
+                const savingsRate = ((ahorro + inversion) / denominator) * 100;
+
+                // Cap @ 100
+                // Si ingresos es 0 y ahorro es 0, savingsRate es 0.
+                // Si ingresos es 0 y ahorro > 0, savingsRate es enorme -> 100.
+                setScore(Math.min(savingsRate, 100));
             }
 
             if (isMounted.current) setLoading(false);
