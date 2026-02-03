@@ -70,6 +70,9 @@ const App: React.FC = () => {
   }, [session?.user?.id]);
 
   const checkProfile = async (userId: string) => {
+    // Prevent re-checking if we just checked this user
+    if (profileCheckedRef.current === userId && userName) return;
+
     try {
       const { data, error } = await supabase
         .from('perfiles')
@@ -84,7 +87,8 @@ const App: React.FC = () => {
         if (!data.onboarding_completed) {
           setShowOnboarding(true);
         }
-        if (data.full_name) {
+        // Only update state if different to prevent re-renders
+        if (data.full_name && data.full_name !== userName) {
           setUserName(data.full_name);
         }
       }

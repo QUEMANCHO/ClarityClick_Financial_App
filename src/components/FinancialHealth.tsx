@@ -25,8 +25,6 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
 
     useEffect(() => {
         const calculateHealth = async () => {
-            console.log('FinancialHealth: Calculating...'); // Debug log
-
             // Only proceed if user is logged in
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
@@ -46,23 +44,28 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
             }
 
             if (data && isMounted.current) {
-                let g = 0, a = 0, i = 0;
+                let ingresos = 0, gastos = 0, ahorro = 0, inversion = 0;
+
                 data.forEach((t: any) => {
                     // Safe parsing just in case, though TS ensures types usually
                     const val = Number(t.cantidad) || 0;
-                    if (t.pilar === 'Ganar') g += val;
-                    if (t.pilar === 'Ahorrar') a += val;
-                    if (t.pilar === 'Invertir') i += val;
+                    if (t.pilar === 'Ganar') ingresos += val;
+                    if (t.pilar === 'Gastar') gastos += val;
+                    if (t.pilar === 'Ahorrar') ahorro += val;
+                    if (t.pilar === 'Invertir') inversion += val;
                 });
 
-                console.log(`FinancialHealth: Totals - Win: ${g}, Save: ${a}, Invest: ${i}`);
+                setTotals({ ganar: ingresos, ahorrar: ahorro, invertir: inversion });
 
-                setTotals({ ganar: g, ahorrar: a, invertir: i });
-
-                if (g > 0) {
-                    // Formula: (Savings + Investment) / Income * 100
-                    const savingsRate = ((a + i) / g) * 100;
-                    setScore(Math.min(savingsRate, 100));
+                if (ingresos > 0) {
+                    // Formula: (Ahorro + Inversión) / (Ingresos) * 100
+                    const savingsRate = ((ahorro + inversion) / ingresos) * 100;
+                    // Ensure not NaN and finite
+                    if (Number.isFinite(savingsRate)) {
+                        setScore(Math.min(savingsRate, 100));
+                    } else {
+                        setScore(0);
+                    }
                 } else {
                     // Avoid division by zero
                     setScore(0);
