@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Heart, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
@@ -13,35 +13,65 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
     const [totals, setTotals] = useState({ ganar: 0, ahorrar: 0, invertir: 0 });
     const { formatCurrency } = useCurrency();
 
+    // Ref to track if component is mounted
+    const isMounted = useRef(true);
+
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
     useEffect(() => {
         const calculateHealth = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            console.log('FinancialHealth: Calculating...'); // Debug log
 
-            const { data } = await supabase
+            // Only proceed if user is logged in
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                if (isMounted.current) setLoading(false);
+                return;
+            }
+
+            const { data, error } = await supabase
                 .from('transacciones')
                 .select('cantidad, pilar')
                 .eq('user_id', user.id);
 
-            if (data) {
+            if (error) {
+                console.error('FinancialHealth: Error fetching data', error);
+                if (isMounted.current) setLoading(false);
+                return;
+            }
+
+            if (data && isMounted.current) {
                 let g = 0, a = 0, i = 0;
                 data.forEach((t: any) => {
-                    if (t.pilar === 'Ganar') g += t.cantidad;
-                    if (t.pilar === 'Ahorrar') a += t.cantidad;
-                    if (t.pilar === 'Invertir') i += t.cantidad;
+                    // Safe parsing just in case, though TS ensures types usually
+                    const val = Number(t.cantidad) || 0;
+                    if (t.pilar === 'Ganar') g += val;
+                    if (t.pilar === 'Ahorrar') a += val;
+                    if (t.pilar === 'Invertir') i += val;
                 });
+
+                console.log(`FinancialHealth: Totals - Win: ${g}, Save: ${a}, Invest: ${i}`);
 
                 setTotals({ ganar: g, ahorrar: a, invertir: i });
 
                 if (g > 0) {
+                    // Formula: (Savings + Investment) / Income * 100
                     const savingsRate = ((a + i) / g) * 100;
-                    setScore(Math.min(savingsRate, 100)); // Cap at 100 for display logic
+                    setScore(Math.min(savingsRate, 100));
                 } else {
+                    // Avoid division by zero
                     setScore(0);
                 }
             }
-            setLoading(false);
+
+            if (isMounted.current) setLoading(false);
         };
+
         calculateHealth();
     }, [refreshTrigger]);
 
