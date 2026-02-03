@@ -47,10 +47,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
             )}
 
-            {/* Sidebar (Desktop: Static/Sticky, Mobile: Fixed Drawer) */}
+            {/* Sidebar (Desktop: Fixed, Mobile: Fixed Drawer) */}
             <aside
-                className={`flex flex-col w-64 bg-slate-900 text-white h-screen fixed md:sticky top-0 left-0 border-r border-slate-800 shadow-xl overflow-y-auto z-50 transition-transform duration-300 ease-in-out
-                ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+                className={`flex flex-col w-64 bg-slate-900 text-white h-screen fixed top-0 left-0 border-r border-slate-800 shadow-xl overflow-y-auto z-50 transition-transform duration-300 ease-in-out
+                ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 `}
             >
                 <div className="p-6 border-b border-slate-800 flex justify-between items-center">

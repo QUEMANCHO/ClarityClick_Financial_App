@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import Auth from './components/Auth';
 import { Sidebar } from './components/Sidebar';
 import DashboardSummary from './components/DashboardSummary';
+import DashboardHeader from './components/DashboardHeader';
 import CashFlowChart from './components/CashFlowChart';
 import ExpensesPieChart from './components/ExpensesPieChart';
 import TransactionForm from './components/TransactionForm';
@@ -25,6 +26,9 @@ const App: React.FC = () => {
   const [userName, setUserName] = useState<string>('');
   const [initialPillar, setInitialPillar] = useState<string | undefined>(undefined);
 
+  // Ref to prevent double checking or loops
+  const profileCheckedRef = useRef<string | null>(null);
+
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -40,71 +44,75 @@ const App: React.FC = () => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) checkProfile(session.user.id);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) checkProfile(session.user.id);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const checkProfile = async (userId: string) => {
-    console.log('[App] Checking profile for user:', userId);
-    const { data, error } = await supabase
-      .from('perfiles')
-      .select('onboarding_completed, full_name')
-      .eq('id', userId)
-      .single();
+  // Isolated effect for profile check - Strictly guarded
+  useEffect(() => {
+    if (!session?.user?.id) {
+      profileCheckedRef.current = null;
+      return;
+    }
 
-    if (error && error.code === 'PGRST116') {
-      setShowOnboarding(true);
-    } else if (data) {
-      if (!data.onboarding_completed) {
+    // Double check to prevent loops
+    if (session.user.id === profileCheckedRef.current) return;
+
+    profileCheckedRef.current = session.user.id;
+    checkProfile(session.user.id);
+  }, [session?.user?.id]);
+
+  const checkProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('perfiles')
+        .select('onboarding_completed, full_name')
+        .eq('id', userId)
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        // Profile doesn't exist
         setShowOnboarding(true);
+      } else if (data) {
+        if (!data.onboarding_completed) {
+          setShowOnboarding(true);
+        }
+        if (data.full_name) {
+          setUserName(data.full_name);
+        }
       }
-      if (data.full_name) {
-        setUserName(data.full_name);
-      }
+    } catch (err) {
+      console.error("Profile check failed silently", err);
     }
   };
 
   const handleOnboardingComplete = async (name: string) => {
     if (!session) return;
     setUserName(name);
-    const { error, data } = await supabase
-      .from('perfiles')
-      .update({
-        email: session.user.email,
-        full_name: name,
-        onboarding_completed: true
-      })
-      .eq('id', session.user.id)
-      .select();
 
-    if (error) {
+    try {
+      const { error } = await supabase
+        .from('perfiles')
+        .upsert({
+          id: session.user.id,
+          email: session.user.email,
+          full_name: name,
+          onboarding_completed: true
+        })
+        .select();
+
+      if (error) throw error;
+      setShowOnboarding(false);
+    } catch (error: any) {
       console.error('Error updating profile:', error);
       alert(`Error al guardar perfil: ${error.message}`);
-    } else {
-      if (data && data.length === 0) {
-        const { error: insertError } = await supabase
-          .from('perfiles')
-          .insert({
-            id: session.user.id,
-            email: session.user.email,
-            full_name: name,
-            onboarding_completed: true
-          });
-        if (insertError) {
-          alert(`Error al crear perfil: ${insertError.message}`);
-          return;
-        }
-      }
-      setShowOnboarding(false);
     }
   };
 
@@ -140,24 +148,28 @@ const App: React.FC = () => {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const handleTabChange = (tab: string) => {
+    window.scrollTo(0, 0);
     setActiveTab(tab);
     closeMobileMenu();
+    setTimeout(() => window.scrollTo(0, 0), 10);
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <div className="space-y-6 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2">
+          <div className="space-y-6 animate-fade-in w-full max-w-7xl mx-auto">
+            <DashboardHeader userName={userName} />
+
+            {/* Restored Layout Structure */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
                 <DashboardSummary
                   refreshTrigger={lastUpdated}
-                  userName={userName}
                   onPillarClick={handlePillarNavigation}
                 />
               </div>
-              <div className="md:col-span-1">
+              <div className="lg:col-span-1">
                 <FinancialHealth refreshTrigger={lastUpdated} />
               </div>
             </div>
@@ -170,7 +182,7 @@ const App: React.FC = () => {
         );
       case 'transactions':
         return (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-6 animate-fade-in w-full max-w-7xl mx-auto">
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Registro de Movimientos</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               <div className="w-full">
@@ -191,7 +203,7 @@ const App: React.FC = () => {
         );
       case 'accounts':
         return (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-6 animate-fade-in w-full max-w-7xl mx-auto">
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Estado de Cuentas</h2>
             <AccountsSummary />
           </div>
@@ -220,10 +232,6 @@ const App: React.FC = () => {
         <>
           {showOnboarding && <WelcomeModal onComplete={handleOnboardingComplete} />}
 
-          {/* Sidebar Navigation */}
-          {/* Note: Sidebar will now handle its own mobile visibility via isOpen prop if we update it */}
-          {/* We are passing isOpen and onClose to Sidebar, but we need to update Sidebar to accept them first. */}
-          {/* Assuming next step will update Sidebar.tsx */}
           <Sidebar
             activeTab={activeTab}
             setActiveTab={handleTabChange}
@@ -231,14 +239,15 @@ const App: React.FC = () => {
             currentTheme={theme}
             userEmail={session.user.email}
             userName={userName}
-            // @ts-ignore - Prop will be added in next step
+            // @ts-ignore
             isOpen={isMobileMenuOpen}
-            // @ts-ignore - Prop will be added in next step
+            // @ts-ignore
             onClose={closeMobileMenu}
           />
 
-          {/* Main Content Area */}
-          <main className="flex-1 md:ml-64 p-4 md:p-8 pb-8 md:pb-8 transition-all duration-300">
+          {/* Main Content Area - Enforced Layout */}
+          {/* Main Content Area - Enforced Layout */}
+          <main className="flex-1 w-full ml-0 lg:ml-64 p-4 md:p-8 pb-8 md:pb-8 transition-all duration-300 overflow-x-hidden">
             <header className="flex justify-between items-center mb-6 md:hidden">
               <div className="flex items-center gap-3">
                 <button

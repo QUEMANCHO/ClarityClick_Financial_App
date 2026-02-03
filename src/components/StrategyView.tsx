@@ -9,13 +9,9 @@ export default function StrategyView() {
     const goalsRef = useRef<HTMLDivElement>(null);
     const simulatorRef = useRef<HTMLDivElement>(null);
 
-    // Scroll to section when it becomes active
+    // Removed auto-scroll logic to prevent mobile glitch
     useEffect(() => {
-        if (activeSection === 'goals' && goalsRef.current) {
-            goalsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else if (activeSection === 'simulator' && simulatorRef.current) {
-            simulatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        // Optional: Reset active section or specific logic if needed
     }, [activeSection]);
 
     return (
@@ -27,7 +23,10 @@ export default function StrategyView() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div
-                    onClick={() => setActiveSection('goals')}
+                    onClick={() => {
+                        setActiveSection('goals');
+                        setTimeout(() => goalsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+                    }}
                     className={`rounded-2xl p-6 text-white shadow-lg transition-all cursor-pointer transform hover:scale-105
                     ${activeSection === 'goals'
                             ? 'bg-blue-600 ring-4 ring-blue-200 dark:ring-blue-900 scale-105'
@@ -41,7 +40,10 @@ export default function StrategyView() {
                 </div>
 
                 <div
-                    onClick={() => setActiveSection('simulator')}
+                    onClick={() => {
+                        setActiveSection('simulator');
+                        setTimeout(() => simulatorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+                    }}
                     className={`rounded-2xl p-6 text-white shadow-lg transition-all cursor-pointer transform hover:scale-105
                     ${activeSection === 'simulator'
                             ? 'bg-emerald-600 ring-4 ring-emerald-200 dark:ring-emerald-900 scale-105'

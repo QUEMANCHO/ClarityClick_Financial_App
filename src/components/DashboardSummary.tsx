@@ -1,67 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { TrendingUp, TrendingDown, PiggyBank, Briefcase } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 
 interface DashboardSummaryProps {
     refreshTrigger: number;
-    userName?: string;
     onPillarClick?: (pillar: string) => void;
 }
 
-const MOTIVATIONAL_QUOTES = [
-    "Hoy es un buen día para invertir",
-    "El control financiero es el camino a la libertad",
-    "Cada pequeño ahorro cuenta para tu futuro",
-    "Gestiona tu energía vital con sabiduría",
-    "El dinero es una herramienta, no el objetivo",
-    "Invierte en ti mismo, es la mejor inversión",
-    "La paciencia es clave en el crecimiento financiero"
-];
-
-export default function DashboardSummary({ refreshTrigger, userName, onPillarClick }: DashboardSummaryProps) {
-    const [totals, setTotals] = useState({
-        Ganar: 0,
-        Gastar: 0,
-        Ahorrar: 0,
-        Invertir: 0,
-    });
+export default function DashboardSummary({ refreshTrigger, onPillarClick }: DashboardSummaryProps) {
+    const [transactionsData, setTransactionsData] = useState<{ pilar: string; cantidad: number }[]>([]);
     const [loading, setLoading] = useState(true);
-    const [quote, setQuote] = useState('');
     const { formatCurrency } = useCurrency();
-
-    useEffect(() => {
-        // Set random quote only on mount to avoid unnecessary re-renders or changes
-        setQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
-    }, []);
 
     useEffect(() => {
         const fetchTotals = async () => {
             try {
+                // setLoading(true); 
+
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
+                // Optimización: Solo traemos las columnas necesarias
                 const { data, error } = await supabase
                     .from('transacciones')
                     .select('cantidad, pilar')
                     .eq('user_id', user.id);
 
                 if (error) throw error;
+                if (data) setTransactionsData(data);
 
-                const newTotals = {
-                    Ganar: 0,
-                    Gastar: 0,
-                    Ahorrar: 0,
-                    Invertir: 0,
-                };
-
-                data.forEach((t: any) => {
-                    if (newTotals[t.pilar as keyof typeof newTotals] !== undefined) {
-                        newTotals[t.pilar as keyof typeof newTotals] += t.cantidad;
-                    }
-                });
-
-                setTotals(newTotals);
             } catch (error) {
                 console.error('Error fetching totals:', error);
             } finally {
@@ -72,6 +40,24 @@ export default function DashboardSummary({ refreshTrigger, userName, onPillarCli
         fetchTotals();
     }, [refreshTrigger]);
 
+    // Memoización: Calculamos los totales solo cuando transactionsData cambia
+    const totals = useMemo(() => {
+        const newTotals = {
+            Ganar: 0,
+            Gastar: 0,
+            Ahorrar: 0,
+            Invertir: 0,
+        };
+
+        transactionsData.forEach((t) => {
+            if (newTotals[t.pilar as keyof typeof newTotals] !== undefined) {
+                newTotals[t.pilar as keyof typeof newTotals] += t.cantidad;
+            }
+        });
+
+        return newTotals;
+    }, [transactionsData]);
+
     const cards = [
         { id: 'Ganar', label: 'Ingresos', icon: <TrendingUp size={24} />, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20', amount: totals.Ganar },
         { id: 'Gastar', label: 'Gastos', icon: <TrendingDown size={24} />, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', amount: totals.Gastar },
@@ -80,27 +66,33 @@ export default function DashboardSummary({ refreshTrigger, userName, onPillarCli
     ];
 
     if (loading) {
-        return <div className="text-center p-4 text-slate-500">Cargando resumen...</div>;
+        return (
+            <div className="mb-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
+                                <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
+                            </div>
+                            <div className="h-8 w-32 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
+                            <div className="h-3 w-16 mt-2 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="mb-8">
-            <div className="mb-6 animate-fade-in">
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
-                    Hola, <span className="text-blue-600 dark:text-blue-400">{userName || 'Usuario'}</span>
-                </h1>
-                <p className="text-slate-500 dark:text-slate-400 italic text-sm">
-                    "{quote}"
-                </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mb-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4 gap-4">
                 {cards.map((card) => (
                     <div
                         key={card.id}
                         onClick={() => onPillarClick?.(card.id)}
-                        className={`p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 dark:bg-slate-900 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
-                            ${card.id === 'Invertir' ? 'col-span-full md:col-span-1 border-emerald-100 dark:border-emerald-900/30' : ''}`}
+                        className={`p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 dark:bg-slate-900 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group bg-white
+                            ${card.id === 'Invertir' ? 'col-span-full sm:col-span-1 border-emerald-100 dark:border-emerald-900/30' : ''}`}
                     >
                         <div className="flex items-center gap-3 mb-2">
                             <div className={`p-2 rounded-lg ${card.bg} ${card.color} transition-transform group-hover:scale-110`}>

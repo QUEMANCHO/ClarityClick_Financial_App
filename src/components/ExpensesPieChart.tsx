@@ -12,7 +12,13 @@ const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4', '#6366f1'
 export default function ExpensesPieChart({ refreshTrigger }: ExpensesPieChartProps) {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false); // Add mounted state
     const { formatCurrency } = useCurrency();
+
+    // Set mounted on client
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const fetchExpenses = async () => {
@@ -55,13 +61,17 @@ export default function ExpensesPieChart({ refreshTrigger }: ExpensesPieChartPro
         fetchExpenses();
     }, [refreshTrigger]);
 
-    if (loading) return null;
-    if (data.length === 0) return null;
+    if (loading) return <div className="h-[350px] w-full flex items-center justify-center text-slate-400">Cargando gráfico...</div>;
+
+    // Safety check - strictly requested
+    if (!data || data.length === 0) return null;
+
+    if (!isMounted) return <div className="h-[300px] w-full" />;
 
     return (
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-100 mb-6">
+        <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-100 mb-6 flex flex-col w-full">
             <h3 className="text-lg font-bold text-slate-800 mb-4">Análisis de Gastos</h3>
-            <div className="h-64 w-full">
+            <div className="h-[350px] w-full" style={{ minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
