@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useCurrency } from '../context/CurrencyContext';
 
 interface CashFlowChartProps {
     refreshTrigger: number;
@@ -9,6 +10,7 @@ interface CashFlowChartProps {
 export default function CashFlowChart({ refreshTrigger }: CashFlowChartProps) {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { formatCurrency } = useCurrency();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -67,7 +69,7 @@ export default function CashFlowChart({ refreshTrigger }: CashFlowChartProps) {
                         <XAxis dataKey="name" axisLine={false} tickLine={false} />
                         <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `$${value / 1000}k`} />
                         <Tooltip
-                            formatter={(value?: number) => [`$${value?.toLocaleString() ?? '0'}`, '']}
+                            formatter={(value: number | undefined) => [value !== undefined ? formatCurrency(value) : '$0', '']}
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         />
                         <Legend />

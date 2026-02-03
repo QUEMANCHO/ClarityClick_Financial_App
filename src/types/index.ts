@@ -14,4 +14,5 @@ export interface USER_PROFILE {
     email: string;
     full_name?: string;
     onboarding_completed: boolean;
+    currency?: string;
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { LayoutDashboard, FileText, Wallet, Settings, TrendingUp, Sun, Moon, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, FileText, Wallet, Settings, TrendingUp, Sun, Moon, LogOut, User, X } from 'lucide-react';
 
 interface SidebarProps {
     activeTab: string;
@@ -9,9 +9,20 @@ interface SidebarProps {
     currentTheme: 'light' | 'dark';
     userEmail?: string;
     userName?: string;
+    isOpen?: boolean;
+    onClose?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, toggleTheme, currentTheme, userEmail, userName }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+    activeTab,
+    setActiveTab,
+    toggleTheme,
+    currentTheme,
+    userEmail,
+    userName,
+    isOpen = false,
+    onClose
+}) => {
     const handleLogout = async () => {
         if (window.confirm('¿Cerrar sesión?')) {
             await supabase.auth.signOut();
@@ -19,22 +30,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, toggl
     };
 
     const menuItems = [
-        { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard }, // Shortened label for mobile
+        { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
         { id: 'transactions', label: 'Registros', icon: FileText },
         { id: 'accounts', label: 'Cuentas', icon: Wallet },
+        { id: 'strategy', label: 'Estrategia', icon: TrendingUp },
         { id: 'settings', label: 'Ajustes', icon: Settings },
-        { id: 'strategy', label: 'Estrategia', icon: TrendingUp }, // Shortened label for mobile
     ];
 
     return (
         <>
-            {/* Desktop Sidebar */}
-            <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 border-r border-slate-800 shadow-xl overflow-y-auto z-50">
-                <div className="p-6 border-b border-slate-800">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                        ClarityClick
-                    </h1>
-                    <p className="text-xs text-slate-400 mt-1">Asesor Financiero</p>
+            {/* Mobile Overlay (Backdrop) */}
+            {isOpen && (
+                <div
+                    onClick={onClose}
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden animate-fade-in backdrop-blur-sm"
+                />
+            )}
+
+            {/* Sidebar (Desktop: Static/Sticky, Mobile: Fixed Drawer) */}
+            <aside
+                className={`flex flex-col w-64 bg-slate-900 text-white h-screen fixed md:sticky top-0 left-0 border-r border-slate-800 shadow-xl overflow-y-auto z-50 transition-transform duration-300 ease-in-out
+                ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+                `}
+            >
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                            ClarityClick
+                        </h1>
+                        <p className="text-xs text-slate-400 mt-1">Asesor Financiero</p>
+                    </div>
+                    {/* Close button for mobile */}
+                    <button onClick={onClose} className="md:hidden text-slate-400 hover:text-white">
+                        <X size={24} />
+                    </button>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
@@ -100,25 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, toggl
                     </div>
                 </div>
             </aside>
-
-            {/* Mobile Bottom Navigation */}
-            <nav className="md:hidden fixed bottom-6 left-4 right-4 bg-slate-900/90 backdrop-blur-md text-white rounded-2xl shadow-2xl z-50 border border-slate-700/50 flex justify-between items-center p-2 mb-safe">
-                {menuItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                        <button
-                            key={item.id}
-                            onClick={() => setActiveTab(item.id)}
-                            className={`flex flex-col items-center justify-center w-full py-2 rounded-xl transition-all duration-200
-                                ${isActive ? 'bg-white/10 text-white transform scale-105' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            <Icon size={24} strokeWidth={isActive ? 2.5 : 2} className="mb-0.5" />
-                            <span className="text-[10px] font-medium">{item.label}</span>
-                        </button>
-                    )
-                })}
-            </nav>
+            {/* Removed Mobile Bottom Navigation as it is replaced by the Drawer */}
         </>
     );
 };

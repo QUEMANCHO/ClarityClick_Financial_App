@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { useCurrency } from '../context/CurrencyContext';
 
 interface ExpensesPieChartProps {
     refreshTrigger: number;
@@ -11,6 +12,7 @@ const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4', '#6366f1'
 export default function ExpensesPieChart({ refreshTrigger }: ExpensesPieChartProps) {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { formatCurrency } = useCurrency();
 
     useEffect(() => {
         const fetchExpenses = async () => {
@@ -74,7 +76,7 @@ export default function ExpensesPieChart({ refreshTrigger }: ExpensesPieChartPro
                             ))}
                         </Pie>
                         <Tooltip
-                            formatter={(value?: number) => [`$${value?.toLocaleString() ?? '0'}`, '']}
+                            formatter={(value: number | undefined) => [value !== undefined ? formatCurrency(value) : '$0', '']}
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         />
                         <Legend iconType="circle" />

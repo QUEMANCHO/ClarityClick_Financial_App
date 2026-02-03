@@ -3,8 +3,12 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css' // <--- ESTA LÍNEA ES VITAL
 
+import { CurrencyProvider } from './context/CurrencyContext'
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <CurrencyProvider>
+      <App />
+    </CurrencyProvider>
   </React.StrictMode>
 )

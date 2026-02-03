@@ -97,7 +97,7 @@ export default function Auth() {
                                     type="email"
                                     required
                                     placeholder="ejemplo@correo.com"
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all dark:text-white dark:placeholder-slate-500"
+                                    className="w-full pl-10 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all dark:text-white dark:placeholder-slate-500"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                 />
@@ -107,19 +107,19 @@ export default function Auth() {
                         <div>
                             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 ml-1 uppercase">Contraseña</label>
                             <div className="relative group">
-                                <Lock className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                                <Lock className="absolute left-3 top-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     required
                                     placeholder="••••••••"
-                                    className="w-full pl-10 pr-12 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all dark:text-white dark:placeholder-slate-500"
+                                    className="w-full pl-10 pr-12 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all dark:text-white dark:placeholder-slate-500"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1"
+                                    className="absolute right-3 top-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1"
                                 >
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
@@ -135,7 +135,7 @@ export default function Auth() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className={`w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all
+                            className={`w-full py-4 rounded-xl font-bold text-lg text-white flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all
                                 ${loading
                                     ? 'bg-slate-400 cursor-not-allowed'
                                     : 'bg-gradient-to-r from-slate-800 to-slate-900 dark:from-white dark:to-slate-200 dark:text-slate-900'

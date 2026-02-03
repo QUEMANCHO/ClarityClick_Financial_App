@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Heart, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useCurrency } from '../context/CurrencyContext';
 
 interface FinancialHealthProps {
     refreshTrigger: number;
@@ -10,6 +11,7 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
     const [score, setScore] = useState(0); // 0 to 100 representing savings rate
     const [loading, setLoading] = useState(true);
     const [totals, setTotals] = useState({ ganar: 0, ahorrar: 0, invertir: 0 });
+    const { formatCurrency } = useCurrency();
 
     useEffect(() => {
         const calculateHealth = async () => {
@@ -86,11 +88,11 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
             <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-2 gap-4 text-xs">
                 <div>
                     <span className="text-slate-500 block">Ingresos Globales</span>
-                    <span className="text-slate-300 font-medium">${totals.ganar.toLocaleString('es-CO')}</span>
+                    <span className="text-slate-300 font-medium">{formatCurrency(totals.ganar)}</span>
                 </div>
                 <div>
                     <span className="text-slate-500 block">Ahorro + Inv.</span>
-                    <span className="text-emerald-400 font-medium">+${(totals.ahorrar + totals.invertir).toLocaleString('es-CO')}</span>
+                    <span className="text-emerald-400 font-medium">+{formatCurrency(totals.ahorrar + totals.invertir)}</span>
                 </div>
             </div>
         </div>

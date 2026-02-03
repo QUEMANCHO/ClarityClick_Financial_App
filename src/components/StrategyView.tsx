@@ -1,10 +1,22 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Target, TrendingUp, ShieldCheck } from 'lucide-react';
 import InvestmentGoals from './InvestmentGoals';
 import CompoundInterestCalculator from './CompoundInterestCalculator';
 
 export default function StrategyView() {
     const [activeSection, setActiveSection] = useState<'goals' | 'simulator' | null>('goals');
+
+    const goalsRef = useRef<HTMLDivElement>(null);
+    const simulatorRef = useRef<HTMLDivElement>(null);
+
+    // Scroll to section when it becomes active
+    useEffect(() => {
+        if (activeSection === 'goals' && goalsRef.current) {
+            goalsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (activeSection === 'simulator' && simulatorRef.current) {
+            simulatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [activeSection]);
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -51,12 +63,23 @@ export default function StrategyView() {
                 </div>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-8 space-y-12">
+                {/* Always render, or conditional? User asked to scroll to sections, implying they might co-exist or we just scroll to the container?
+                   Currently logic is conditional: {activeSection === 'goals' && ...}
+                   If they are conditional, scrollIntoView might fail if the element isn't there yet.
+                   However, useEffect runs after render.
+                   Let's wrap them in divs with refs.
+                */}
+
                 {activeSection === 'goals' && (
-                    <InvestmentGoals />
+                    <div ref={goalsRef} className="animate-fade-in">
+                        <InvestmentGoals />
+                    </div>
                 )}
                 {activeSection === 'simulator' && (
-                    <CompoundInterestCalculator />
+                    <div ref={simulatorRef} className="animate-fade-in">
+                        <CompoundInterestCalculator />
+                    </div>
                 )}
             </div>
         </div>

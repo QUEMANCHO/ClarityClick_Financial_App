@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Wallet, CreditCard, Landmark, Coins } from 'lucide-react';
+import { useCurrency } from '../context/CurrencyContext';
 
 export default function AccountsSummary() {
     const [accounts, setAccounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
+    const { formatCurrency } = useCurrency();
 
     useEffect(() => {
         const fetchAccounts = async () => {
@@ -83,7 +85,7 @@ export default function AccountsSummary() {
                         </div>
                     </div>
                     <span className={`text-xl font-bold ${balance >= 0 ? 'text-slate-900 dark:text-white' : 'text-red-500'}`}>
-                        ${balance.toLocaleString('es-CO')}
+                        {formatCurrency(balance)}
                     </span>
                 </div>
             ))}

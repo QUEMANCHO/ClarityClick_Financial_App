@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { TrendingUp, TrendingDown, PiggyBank, Briefcase } from 'lucide-react';
+import { useCurrency } from '../context/CurrencyContext';
 
 interface DashboardSummaryProps {
     refreshTrigger: number;
     userName?: string;
+    onPillarClick?: (pillar: string) => void;
 }
 
 const MOTIVATIONAL_QUOTES = [
@@ -17,7 +19,7 @@ const MOTIVATIONAL_QUOTES = [
     "La paciencia es clave en el crecimiento financiero"
 ];
 
-export default function DashboardSummary({ refreshTrigger, userName }: DashboardSummaryProps) {
+export default function DashboardSummary({ refreshTrigger, userName, onPillarClick }: DashboardSummaryProps) {
     const [totals, setTotals] = useState({
         Ganar: 0,
         Gastar: 0,
@@ -26,6 +28,7 @@ export default function DashboardSummary({ refreshTrigger, userName }: Dashboard
     });
     const [loading, setLoading] = useState(true);
     const [quote, setQuote] = useState('');
+    const { formatCurrency } = useCurrency();
 
     useEffect(() => {
         // Set random quote only on mount to avoid unnecessary re-renders or changes
@@ -95,11 +98,12 @@ export default function DashboardSummary({ refreshTrigger, userName }: Dashboard
                 {cards.map((card) => (
                     <div
                         key={card.id}
-                        className={`p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 dark:bg-slate-900 transition-all duration-300 hover:shadow-md
+                        onClick={() => onPillarClick?.(card.id)}
+                        className={`p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 dark:bg-slate-900 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
                             ${card.id === 'Invertir' ? 'col-span-full md:col-span-1 border-emerald-100 dark:border-emerald-900/30' : ''}`}
                     >
                         <div className="flex items-center gap-3 mb-2">
-                            <div className={`p-2 rounded-lg ${card.bg} ${card.color}`}>
+                            <div className={`p-2 rounded-lg ${card.bg} ${card.color} transition-transform group-hover:scale-110`}>
                                 {card.icon}
                             </div>
                             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -108,10 +112,10 @@ export default function DashboardSummary({ refreshTrigger, userName }: Dashboard
                         </div>
                         <div className="mt-2">
                             <span className={`text-2xl font-bold ${card.color}`}>
-                                ${card.amount.toLocaleString('es-CO')}
+                                {formatCurrency(card.amount)}
                             </span>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                                +0% este mes
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
+                                Ver detalles
                             </p>
                         </div>
                     </div>

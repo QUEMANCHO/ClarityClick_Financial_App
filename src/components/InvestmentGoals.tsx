@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Target, Plus, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { useCurrency } from '../context/CurrencyContext';
 
 interface Goal {
     id: number;
@@ -21,6 +22,7 @@ export default function InvestmentGoals() {
     const [montoObjetivo, setMontoObjetivo] = useState('');
     const [montoActual, setMontoActual] = useState('');
     const [fechaLimite, setFechaLimite] = useState('');
+    const { formatCurrency } = useCurrency();
 
     const fetchGoals = async () => {
         setLoading(true);
@@ -161,8 +163,8 @@ export default function InvestmentGoals() {
                             </div>
 
                             <div className="flex justify-between items-end mb-2">
-                                <span className="text-2xl font-bold text-slate-900 dark:text-white">${goal.monto_actual.toLocaleString()}</span>
-                                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">de ${goal.monto_objetivo.toLocaleString()}</span>
+                                <span className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(goal.monto_actual)}</span>
+                                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">de {formatCurrency(goal.monto_objetivo)}</span>
                             </div>
 
                             {/* Progress Bar */}
@@ -174,7 +176,7 @@ export default function InvestmentGoals() {
                             </div>
                             <div className="flex justify-between mt-2 text-xs font-bold">
                                 <span className={`${progress >= 100 ? 'text-green-600' : 'text-blue-600'}`}>{progress}% Completado</span>
-                                <span className="text-slate-400">Faltan ${(goal.monto_objetivo - goal.monto_actual).toLocaleString()}</span>
+                                <span className="text-slate-400">Faltan {formatCurrency(goal.monto_objetivo - goal.monto_actual)}</span>
                             </div>
                         </div>
                     );

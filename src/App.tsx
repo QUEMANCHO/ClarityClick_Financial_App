@@ -15,6 +15,7 @@ import StrategyView from './components/StrategyView';
 import WelcomeModal from './components/WelcomeModal';
 import './index.css';
 import { Transaction } from './types';
+import { Menu } from 'lucide-react';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -22,6 +23,10 @@ const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [userName, setUserName] = useState<string>('');
+  const [initialPillar, setInitialPillar] = useState<string | undefined>(undefined);
+
+  // Mobile Menu State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -56,32 +61,21 @@ const App: React.FC = () => {
       .eq('id', userId)
       .single();
 
-    console.log('[App] Profile fetch result:', { data, error });
-
     if (error && error.code === 'PGRST116') {
-      console.log('[App] Profile not found -> Showing onboarding');
       setShowOnboarding(true);
     } else if (data) {
       if (!data.onboarding_completed) {
-        console.log('[App] Profile exists but incomplete -> Showing onboarding');
         setShowOnboarding(true);
       }
       if (data.full_name) {
         setUserName(data.full_name);
       }
-    } else {
-      console.log('[App] Onboarding completed according to DB');
     }
   };
 
   const handleOnboardingComplete = async (name: string) => {
     if (!session) return;
-
-    setUserName(name); // Optimistic update
-
-    console.log('[App] Attempting to update profile:', { id: session.user.id, name });
-
-    // Try UPDATE first since we know profile likely exists
+    setUserName(name);
     const { error, data } = await supabase
       .from('perfiles')
       .update({
@@ -92,16 +86,11 @@ const App: React.FC = () => {
       .eq('id', session.user.id)
       .select();
 
-    console.log('[App] Update result:', { error, data });
-
     if (error) {
       console.error('Error updating profile:', error);
-      alert(`Error al guardar perfil: ${error.message || error.details || 'Error desconocido'}`);
+      alert(`Error al guardar perfil: ${error.message}`);
     } else {
-      // Double check if update actually affected a row
       if (data && data.length === 0) {
-        console.warn('[App] Update returned 0 rows. Trying Insert fallback.');
-        // Fallback to INSERT if update missed (rare race condition or simple missing row)
         const { error: insertError } = await supabase
           .from('perfiles')
           .insert({
@@ -110,7 +99,6 @@ const App: React.FC = () => {
             full_name: name,
             onboarding_completed: true
           });
-
         if (insertError) {
           alert(`Error al crear perfil: ${insertError.message}`);
           return;
@@ -134,11 +122,26 @@ const App: React.FC = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
   };
+
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const handleTransactionSuccess = () => {
     setLastUpdated(Date.now());
-    setEditingTransaction(null); // Clear editing state on success
+    setEditingTransaction(null);
+    setInitialPillar(undefined);
+  };
+
+  const handlePillarNavigation = (pillar: string) => {
+    setInitialPillar(pillar);
+    setActiveTab('transactions');
+  };
+
+  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    closeMobileMenu();
   };
 
   const renderContent = () => {
@@ -146,10 +149,13 @@ const App: React.FC = () => {
       case 'dashboard':
         return (
           <div className="space-y-6 animate-fade-in">
-            {/* Header moved inside DashboardSummary for personalization */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
-                <DashboardSummary refreshTrigger={lastUpdated} userName={userName} />
+                <DashboardSummary
+                  refreshTrigger={lastUpdated}
+                  userName={userName}
+                  onPillarClick={handlePillarNavigation}
+                />
               </div>
               <div className="md:col-span-1">
                 <FinancialHealth refreshTrigger={lastUpdated} />
@@ -172,6 +178,7 @@ const App: React.FC = () => {
                   onSuccess={handleTransactionSuccess}
                   transactionToEdit={editingTransaction}
                   onCancelEdit={() => setEditingTransaction(null)}
+                  initialPillar={initialPillar}
                 />
               </div>
               <TransactionList
@@ -214,19 +221,34 @@ const App: React.FC = () => {
           {showOnboarding && <WelcomeModal onComplete={handleOnboardingComplete} />}
 
           {/* Sidebar Navigation */}
+          {/* Note: Sidebar will now handle its own mobile visibility via isOpen prop if we update it */}
+          {/* We are passing isOpen and onClose to Sidebar, but we need to update Sidebar to accept them first. */}
+          {/* Assuming next step will update Sidebar.tsx */}
           <Sidebar
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
+            setActiveTab={handleTabChange}
             toggleTheme={toggleTheme}
             currentTheme={theme}
             userEmail={session.user.email}
             userName={userName}
+            // @ts-ignore - Prop will be added in next step
+            isOpen={isMobileMenuOpen}
+            // @ts-ignore - Prop will be added in next step
+            onClose={closeMobileMenu}
           />
 
           {/* Main Content Area */}
-          <main className="flex-1 md:ml-64 p-4 md:p-8 pb-32 md:pb-8 transition-all duration-300">
+          <main className="flex-1 md:ml-64 p-4 md:p-8 pb-8 md:pb-8 transition-all duration-300">
             <header className="flex justify-between items-center mb-6 md:hidden">
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">ClarityClick</h1>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleMobileMenu}
+                  className="p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <Menu size={24} />
+                </button>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-white">ClarityClick</h1>
+              </div>
             </header>
 
             {renderContent()}
