@@ -73,9 +73,6 @@ const App: React.FC = () => {
     // ESTABILIZACIÓN: Si ya tenemos el nombre, no volver a consultar
     if (userName) return;
 
-    // Prevent re-checking if we just checked this user
-    if (profileCheckedRef.current === userId) return;
-
     try {
       const { data, error } = await supabase
         .from('perfiles')
@@ -253,8 +250,7 @@ const App: React.FC = () => {
           />
 
           {/* Main Content Area - Enforced Layout */}
-          {/* Main Content Area - Enforced Layout */}
-          <main className="flex-1 w-full ml-0 lg:ml-64 p-4 md:p-8 pb-8 md:pb-8 transition-all duration-300 overflow-x-hidden">
+          <main className="flex-1 w-full p-4 md:p-8 pb-8 md:pb-8 transition-all duration-300 overflow-x-hidden">
             <header className="flex justify-between items-center mb-6 md:hidden">
               <div className="flex items-center gap-3">
                 <button
