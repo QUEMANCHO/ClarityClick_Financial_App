@@ -6,7 +6,7 @@ export default defineConfig({
         tailwindcss(),
         VitePWA({
             registerType: 'autoUpdate',
-            injectRegister: 'auto',
+            injectRegister: 'inline',
             includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
             manifest: {
                 id: '/',
@@ -43,6 +43,22 @@ export default defineConfig({
                         sizes: '512x512',
                         type: 'image/png',
                         purpose: 'maskable'
+                    }
+                ],
+                screenshots: [
+                    {
+                        src: "https://placehold.co/1080x1920/png?text=ClarityClick+Dashboard",
+                        sizes: "1080x1920",
+                        type: "image/png",
+                        platform: "narrow",
+                        label: "Dashboard Principal"
+                    },
+                    {
+                        src: "https://placehold.co/1080x1920/png?text=ClarityClick+Transactions",
+                        sizes: "1080x1920",
+                        type: "image/png",
+                        platform: "narrow",
+                        label: "Registro de Movimientos"
                     }
                 ]
             },
