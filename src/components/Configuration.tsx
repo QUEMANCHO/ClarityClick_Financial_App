@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { Trash2, AlertTriangle, CheckCircle, Moon, Sun, LogOut, DollarSign } from 'lucide-react';
 import { useCurrency, AVAILABLE_CURRENCIES } from '../context/CurrencyContext';
+import { DollarSign, Moon, Sun, LogOut, AlertTriangle, Smartphone, Download, CheckCircle, Trash2 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface ConfigurationProps {
     onTruncateComplete: () => void;
@@ -13,6 +14,8 @@ export default function Configuration({ onTruncateComplete, toggleTheme, current
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const { currency, setCurrency } = useCurrency();
+
+    const { isInstallable, isAppInstalled, install } = usePWAInstall();
 
     const handleReset = async () => {
         if (!window.confirm("¡ADVERTENCIA CRÍTICA!\n\n¿Estás seguro de que deseas ELIMINAR TODOS los registros?\n\nEsta acción no se puede deshacer. Se borrarán todos los ingresos, gastos y movimientos.")) {
@@ -27,7 +30,6 @@ export default function Configuration({ onTruncateComplete, toggleTheme, current
         setStatus('idle');
 
         try {
-            // First, fetch all IDs to allow for a safe delete (avoiding 'delete all' restriction)
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("No authenticated user");
 
@@ -44,9 +46,8 @@ export default function Configuration({ onTruncateComplete, toggleTheme, current
                 return;
             }
 
-            const idsToDelete = records.map(r => r.id);
+            const idsToDelete = records.map((r: { id: string }) => r.id);
 
-            // Delete by ID list
             const { error: deleteError } = await supabase
                 .from('transacciones')
                 .delete()
@@ -57,7 +58,6 @@ export default function Configuration({ onTruncateComplete, toggleTheme, current
             setStatus('success');
             onTruncateComplete();
 
-            // Auto hide success message after 3 seconds
             setTimeout(() => setStatus('idle'), 3000);
 
         } catch (error) {
@@ -76,8 +76,57 @@ export default function Configuration({ onTruncateComplete, toggleTheme, current
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in pb-20">
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Configuración del Sistema</h2>
+
+            {/* Seccion de Instalación PWA */}
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
+                    <Smartphone className="w-5 h-5 text-blue-500" />
+                    Aplicación Móvil
+                </h3>
+
+                <div className="space-y-4">
+                    <p className="text-slate-600 dark:text-slate-400 text-sm">
+                        Instala la aplicación en tu dispositivo para acceder más rápido y sin conexión.
+                    </p>
+
+                    <div className="flex flex-col gap-3">
+                        {isAppInstalled ? (
+                            <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                                <CheckCircle className="w-5 h-5" />
+                                <span className="font-medium">Aplicación instalada</span>
+                            </div>
+                        ) : isInstallable ? (
+                            <button
+                                onClick={install}
+                                className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-medium shadow-lg hover:shadow-blue-500/30"
+                            >
+                                <Download className="w-5 h-5" />
+                                Instalar Aplicación
+                            </button>
+                        ) : (
+                            <div className="text-sm text-slate-500 bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <p>La instalación automática no está disponible en este momento.</p>
+                                <p className="mt-1 text-xs">
+                                    Si estás en <strong>iOS (iPhone)</strong>: Toca el botón <strong>Compartir</strong> <span className="inline-block px-1 bg-slate-200 dark:bg-slate-600 rounded">⎋</span> y selecciona <strong>"Añadir a pantalla de inicio"</strong>.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {!isAppInstalled && (
+                        <details className="text-xs text-slate-400 mt-4 cursor-pointer">
+                            <summary>Ver diagnóstico de instalación</summary>
+                            <ul className="mt-2 space-y-1 list-disc pl-4">
+                                <li>Soporte PWA detectado: {window.matchMedia('(display-mode: standalone)').matches ? 'Sí (Standalone)' : 'No (Browser)'}</li>
+                                <li>Evento 'beforeinstallprompt': {isInstallable ? 'Capturado ✅' : 'No capturado ⏳'}</li>
+                                <li>Protocolo seguro (HTTPS): {window.location.protocol === 'https:' ? 'Sí ✅' : 'No ⚠️ (Requerido)'}</li>
+                            </ul>
+                        </details>
+                    )}
+                </div>
+            </div>
 
             {/* General Settings */}
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
@@ -85,7 +134,6 @@ export default function Configuration({ onTruncateComplete, toggleTheme, current
                     <h3 className="font-bold text-lg text-slate-800 dark:text-white">General</h3>
                 </div>
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Currency Selector */}
                     <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-300">
@@ -101,7 +149,7 @@ export default function Configuration({ onTruncateComplete, toggleTheme, current
                             onChange={(e) => setCurrency(e.target.value)}
                             className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            {AVAILABLE_CURRENCIES.map(c => (
+                            {AVAILABLE_CURRENCIES.map((c: { code: string; label: string }) => (
                                 <option key={c.code} value={c.code}>
                                     {c.code} - {c.label}
                                 </option>
