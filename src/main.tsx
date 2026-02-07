@@ -6,6 +6,7 @@ import './index.css' // <--- ESTA LÍNEA ES VITAL
 
 // Register service worker
 const updateSW = registerSW({
+  immediate: true,
   onNeedRefresh() {
     if (confirm('New content available. Reload?')) {
       updateSW(true)
