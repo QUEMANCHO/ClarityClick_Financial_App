@@ -14,6 +14,7 @@ import FinancialHealth from './components/FinancialHealth';
 import Configuration from './components/Configuration';
 import StrategyView from './components/StrategyView';
 import WelcomeModal from './components/WelcomeModal';
+import InstallPrompt from './components/InstallPrompt';
 import './index.css';
 import { Transaction } from './types';
 import { Menu } from 'lucide-react';
@@ -235,6 +236,7 @@ const App: React.FC = () => {
       ) : (
         <>
           {showOnboarding && <WelcomeModal onComplete={handleOnboardingComplete} />}
+          <InstallPrompt />
 
           <Sidebar
             activeTab={activeTab}
