@@ -11,6 +11,9 @@ const updateSW = registerSW({
       updateSW(true)
     }
   },
+  onOfflineReady() {
+    console.log('App ready to work offline')
+  },
 })
 
 import { CurrencyProvider } from './context/CurrencyContext'
