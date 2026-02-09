@@ -1,11 +1,15 @@
+// @ts-ignore
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { getExchangeRateMatrix, convertToDisplay } from '../services/currencyService';
 
 interface CurrencyContextType {
     currency: string;
     setCurrency: (currency: string) => Promise<void>;
-    formatCurrency: (amount: number) => string;
+    formatCurrency: (amount: number, originalCurrency?: string) => string;
+    convertAmount: (amount: number, originalCurrency?: string) => number;
     loading: boolean;
+    exchangeRates: Record<string, number>;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -19,10 +23,11 @@ export const AVAILABLE_CURRENCIES = [
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const [currency, setCurrencyState] = useState('COP'); // Default to COP
+    const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
 
+    // Initial Load: User preference
     useEffect(() => {
-        // Fetch user preference on load
         const loadCurrencyPreference = async () => {
             try {
                 const { data: { user } } = await supabase.auth.getUser();
@@ -47,6 +52,16 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         loadCurrencyPreference();
     }, []);
 
+    // Fetch Rates whenever the *target* currency changes
+    useEffect(() => {
+        const fetchRates = async () => {
+            const rates = await getExchangeRateMatrix(currency);
+            setExchangeRates(rates || {});
+        };
+
+        fetchRates();
+    }, [currency]);
+
     const setCurrency = async (newCurrency: string) => {
         setCurrencyState(newCurrency);
         try {
@@ -61,22 +76,32 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (err) {
             console.error('Error saving currency preference:', err);
-            // Optionally revert state here if critical
         }
     };
 
-    const formatCurrency = (amount: number) => {
+    const convertAmount = (amount: number, originalCurrency: string = 'COP') => {
+        // If current selected currency is same as original, no conversion needed
+        if (currency === originalCurrency) return amount;
+
+        // Use the utility service to calculate
+        return convertToDisplay(amount, originalCurrency, currency, exchangeRates);
+    };
+
+    const formatCurrency = (amount: number, originalCurrency?: string) => {
+        const value = originalCurrency ? convertAmount(amount, originalCurrency) : amount;
+
         const currencyConfig = AVAILABLE_CURRENCIES.find(c => c.code === currency) || AVAILABLE_CURRENCIES[0];
+
         return new Intl.NumberFormat(currencyConfig.locale, {
             style: 'currency',
             currency: currencyConfig.code,
             minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(amount);
+            maximumFractionDigits: 2, // Allow decimals for USD/EUR if needed, though previously 0
+        }).format(value);
     };
 
     return (
-        <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, loading }}>
+        <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, convertAmount, loading, exchangeRates }}>
             {children}
         </CurrencyContext.Provider>
     );

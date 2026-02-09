@@ -8,17 +8,21 @@ interface FilterSummaryProps {
 }
 
 export default function FilterSummary({ transactions }: FilterSummaryProps) {
-    const { formatCurrency } = useCurrency();
+    const { formatCurrency, convertAmount } = useCurrency();
 
     const summary = useMemo(() => {
         let income = 0;
         let expenses = 0;
 
         transactions.forEach(t => {
+            const originalAmount = t.monto_original || t.cantidad;
+            const originalCurrency = t.moneda_original || 'COP';
+            const convertedAmount = convertAmount(originalAmount, originalCurrency);
+
             if (t.pilar === 'Ganar') {
-                income += t.cantidad;
+                income += convertedAmount;
             } else if (t.pilar === 'Gastar') {
-                expenses += t.cantidad;
+                expenses += convertedAmount;
             }
             // Note: 'Ahorrar' and 'Invertir' are excluded from this specific 'Income vs Expense' view 
             // as requested for the "Balance Neto" context in this specific component.
@@ -29,7 +33,7 @@ export default function FilterSummary({ transactions }: FilterSummaryProps) {
             expenses,
             balance: income - expenses
         };
-    }, [transactions]);
+    }, [transactions, convertAmount]);
 
     // If no transactions, show 0 (or could handle 'loading' state if passed, but transactions[] usually starts empty or has data)
     // Actually, if simply 0, it renders 0.

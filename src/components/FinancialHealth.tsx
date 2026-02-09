@@ -11,7 +11,7 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
     const [score, setScore] = useState(0); // 0 to 100 representing savings rate
     const [loading, setLoading] = useState(true);
     const [totals, setTotals] = useState({ ganar: 0, ahorrar: 0, invertir: 0 });
-    const { formatCurrency } = useCurrency();
+    const { formatCurrency, convertAmount } = useCurrency();
 
     // Ref to track if component is mounted
     const isMounted = useRef(true);
@@ -34,7 +34,7 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
 
             const { data, error } = await supabase
                 .from('transacciones')
-                .select('cantidad, pilar')
+                .select('cantidad, pilar, moneda_original, monto_original')
                 .eq('user_id', user.id);
 
             if (error) {
@@ -47,12 +47,14 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
                 let ingresos = 0, gastos = 0, ahorro = 0, inversion = 0;
 
                 data.forEach((t: any) => {
-                    // Safe parsing just in case, though TS ensures types usually
-                    const val = Number(t.cantidad) || 0;
-                    if (t.pilar === 'Ganar') ingresos += val;
-                    if (t.pilar === 'Gastar') gastos += val;
-                    if (t.pilar === 'Ahorrar') ahorro += val;
-                    if (t.pilar === 'Invertir') inversion += val;
+                    const originalAmount = t.monto_original || t.cantidad;
+                    const originalCurrency = t.moneda_original || 'COP';
+                    const convertedAmount = convertAmount(originalAmount, originalCurrency);
+
+                    if (t.pilar === 'Ganar') ingresos += convertedAmount;
+                    if (t.pilar === 'Gastar') gastos += convertedAmount;
+                    if (t.pilar === 'Ahorrar') ahorro += convertedAmount;
+                    if (t.pilar === 'Invertir') inversion += convertedAmount;
                 });
 
                 setTotals({ ganar: ingresos, ahorrar: ahorro, invertir: inversion });
@@ -63,8 +65,6 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
                 const savingsRate = ((ahorro + inversion) / denominator) * 100;
 
                 // Cap @ 100
-                // Si ingresos es 0 y ahorro es 0, savingsRate es 0.
-                // Si ingresos es 0 y ahorro > 0, savingsRate es enorme -> 100.
                 setScore(Math.min(savingsRate, 100));
             }
 
@@ -72,7 +72,7 @@ export default function FinancialHealth({ refreshTrigger }: FinancialHealthProps
         };
 
         calculateHealth();
-    }, [refreshTrigger]);
+    }, [refreshTrigger, convertAmount]);
 
     const getHealthStatus = (s: number) => {
         if (s >= 30) return { label: 'Excelente', color: 'text-emerald-500', bg: 'bg-emerald-100', icon: <CheckCircle size={24} />, message: '¡Estás construyendo riqueza!' };

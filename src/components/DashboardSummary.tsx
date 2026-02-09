@@ -9,9 +9,10 @@ interface DashboardSummaryProps {
 }
 
 export default function DashboardSummary({ refreshTrigger, onPillarClick }: DashboardSummaryProps) {
-    const [transactionsData, setTransactionsData] = useState<{ pilar: string; cantidad: number }[]>([]);
+    // Need to fetch original currency info to convert properly
+    const [transactionsData, setTransactionsData] = useState<{ pilar: string; cantidad: number; moneda_original?: string; monto_original?: number }[]>([]);
     const [loading, setLoading] = useState(true);
-    const { formatCurrency } = useCurrency();
+    const { formatCurrency, convertAmount } = useCurrency();
 
     useEffect(() => {
         const fetchTotals = async () => {
@@ -24,7 +25,8 @@ export default function DashboardSummary({ refreshTrigger, onPillarClick }: Dash
                 // Optimización: Solo traemos las columnas necesarias
                 const { data, error } = await supabase
                     .from('transacciones')
-                    .select('cantidad, pilar')
+                    // Include original currency fields
+                    .select('cantidad, pilar, moneda_original, monto_original')
                     .eq('user_id', user.id);
 
                 if (error) throw error;
@@ -40,7 +42,8 @@ export default function DashboardSummary({ refreshTrigger, onPillarClick }: Dash
         fetchTotals();
     }, [refreshTrigger]);
 
-    // Memoización: Calculamos los totales solo cuando transactionsData cambia
+    // Memoización: Calculamos los totales solo cuando transactionsData cambia OR currency context changes (implicitly by re-render, 
+    // but convertAmount uses current rates, so we might need to depend on rates/currency if we want to ensure reactivity)
     const totals = useMemo(() => {
         const newTotals = {
             Ganar: 0,
@@ -51,12 +54,19 @@ export default function DashboardSummary({ refreshTrigger, onPillarClick }: Dash
 
         transactionsData.forEach((t) => {
             if (newTotals[t.pilar as keyof typeof newTotals] !== undefined) {
-                newTotals[t.pilar as keyof typeof newTotals] += t.cantidad;
+                // Convert each transaction amount to the CURRENT display currency
+                const originalAmount = t.monto_original || t.cantidad;
+                const originalCurrency = t.moneda_original || 'COP'; // Default if missing
+
+                const convertedAmount = convertAmount(originalAmount, originalCurrency);
+
+                newTotals[t.pilar as keyof typeof newTotals] += convertedAmount;
             }
         });
 
         return newTotals;
-    }, [transactionsData]);
+        // We need to re-calc when transactions change OR when the conversion function changes (which depends on selected currency/rates)
+    }, [transactionsData, convertAmount]);
 
     const cards = [
         { id: 'Ganar', label: 'Ingresos', icon: <TrendingUp size={24} />, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20', amount: totals.Ganar },
