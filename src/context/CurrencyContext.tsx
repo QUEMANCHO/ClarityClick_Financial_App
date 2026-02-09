@@ -1,5 +1,5 @@
 // @ts-ignore
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { getExchangeRateMatrix, convertToDisplay } from '../services/currencyService';
 
@@ -22,7 +22,12 @@ export const AVAILABLE_CURRENCIES = [
 ];
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-    const [currency, setCurrencyState] = useState('COP'); // Default to COP
+    const [currency, setCurrencyState] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('currency_preference') || 'COP';
+        }
+        return 'COP';
+    });
     const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
 
@@ -64,6 +69,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
     const setCurrency = async (newCurrency: string) => {
         setCurrencyState(newCurrency);
+        localStorage.setItem('currency_preference', newCurrency);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
@@ -79,15 +85,20 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const convertAmount = (amount: number, originalCurrency: string = 'COP') => {
-        // If current selected currency is same as original, no conversion needed
+    const convertAmount = useCallback((amount: number, originalCurrency: string = 'COP') => {
+        // If currencies are obviously the same, return amount
         if (currency === originalCurrency) return amount;
 
-        // Use the utility service to calculate
-        return convertToDisplay(amount, originalCurrency, currency, exchangeRates);
-    };
+        // If rates are not loaded yet, or strictly empty, we can't convert accurately.
+        // Return amount (fallback) but maybe warn in dev
+        if (!exchangeRates || Object.keys(exchangeRates).length === 0) {
+            return amount;
+        }
 
-    const formatCurrency = (amount: number, originalCurrency?: string) => {
+        return convertToDisplay(amount, originalCurrency, currency, exchangeRates);
+    }, [currency, exchangeRates]);
+
+    const formatCurrency = useCallback((amount: number, originalCurrency?: string) => {
         const value = originalCurrency ? convertAmount(amount, originalCurrency) : amount;
 
         const currencyConfig = AVAILABLE_CURRENCIES.find(c => c.code === currency) || AVAILABLE_CURRENCIES[0];
@@ -96,9 +107,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             style: 'currency',
             currency: currencyConfig.code,
             minimumFractionDigits: 0,
-            maximumFractionDigits: 2, // Allow decimals for USD/EUR if needed, though previously 0
+            maximumFractionDigits: 2,
         }).format(value);
-    };
+    }, [currency, convertAmount]);
 
     return (
         <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, convertAmount, loading, exchangeRates }}>
