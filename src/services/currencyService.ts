@@ -18,9 +18,17 @@ export const getExchangeRateMatrix = async (baseCurrency: string): Promise<Recor
     const cachedData = localStorage.getItem(cacheKey);
 
     if (cachedData) {
-        const { rates, timestamp } = JSON.parse(cachedData);
-        if (Date.now() - timestamp < CACHE_DURATION_MS) {
-            return rates;
+        try {
+            const parsed = JSON.parse(cachedData);
+            // Validate structure
+            if (parsed && parsed.rates && parsed.timestamp) {
+                if (Date.now() - parsed.timestamp < CACHE_DURATION_MS) {
+                    return parsed.rates;
+                }
+            }
+        } catch (e) {
+            console.error('Error parsing currency cache', e);
+            localStorage.removeItem(cacheKey);
         }
     }
 
@@ -50,6 +58,8 @@ export const getExchangeRateMatrix = async (baseCurrency: string): Promise<Recor
         }
     } catch (error) {
         console.error('Error fetching exchange rate:', error);
+        // Clean cache on error to force retry next time
+        localStorage.removeItem(cacheKey);
         return {};
     }
 };
