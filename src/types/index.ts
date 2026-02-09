@@ -7,6 +7,9 @@ export interface Transaction {
     cuenta: string;
     categoria: string;
     tag?: string;
+    moneda_original?: string;
+    monto_original?: number;
+    tasa_cambio?: number;
     user_id?: string;
 }
 

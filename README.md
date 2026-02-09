@@ -53,6 +53,14 @@ Diseño meticuloso centrado en la experiencia de usuario:
 ### 📊 Gráficos Dinámicos
 -   **Flujo de Caja**: Visualización de ingresos vs. egresos en el tiempo.
 -   **Distribución de Gastos**: Gráfico de pastel interactivo para identificar fugas de capital por categoría.
+-   **Sistema Multidivisa**: Conversión automática de gastos en monedas extranjeras (ej. USD) a la moneda base (COP) utilizando tasas de cambio en tiempo real.
+-   **Filtros Avanzados**: Potente motor de búsqueda por categoría, etiquetas personalizadas y rangos de fecha específicos.
+-   **Etiquetado Inteligente**: Posibilidad de añadir etiquetas (tags) opcionales a los gastos para un rastreo más granular.
+
+### 📱 Progressive Web App (PWA)
+-   **Instalable**: Funciona como una aplicación nativa en iOS y Android.
+-   **Offline-Ready**: Capacidad de funcionamiento básico sin conexión a internet.
+-   **Actualizaciones Automáticas**: El Service Worker asegura que siempre tengas la última versión disponible.
 
 ---
 

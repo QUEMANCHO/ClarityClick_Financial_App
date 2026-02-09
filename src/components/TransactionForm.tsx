@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabaseClient';
 import { Transaction } from '../types';
 
 import { PILARES, CUENTAS, CATEGORIAS } from '../constants';
+import { getExchangeRate } from '../services/currencyService';
+import { AVAILABLE_CURRENCIES } from '../context/CurrencyContext';
 
 
 interface TransactionFormProps {
@@ -20,7 +22,9 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
     const [cuenta, setCuenta] = useState('Efectivo');
     const [categoria, setCategoria] = useState('Otros');
     const [tag, setTag] = useState('');
-    const { currency } = useCurrency();
+    const { currency, formatCurrency } = useCurrency();
+    const [inputCurrency, setInputCurrency] = useState(currency);
+    const [exchangeRate, setExchangeRate] = useState(1);
     const [loading, setLoading] = useState(false);
 
     // Refs for scrolling and focus
@@ -74,18 +78,31 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         // If not 'Gastar', category usually blank or custom, but 'Otros' is a safe default or empty?
         setCategoria(pilarOverride && pilarOverride !== 'Gastar' ? '' : 'Otros');
         setTag('');
+        setInputCurrency(currency);
+        setExchangeRate(1);
     };
 
     useEffect(() => {
         if (transactionToEdit) {
-            const initialVal = transactionToEdit.cantidad.toString();
-            const { decimal } = getSeparators(currency);
+            // ... existing edit logic ...
+            // We need to handle how we show the amount. 
+            // Ideally, we show the ORIGINAL amount and currency if available.
+            // But for now, let's stick to the simpler approach of editing the converted amount 
+            // UNLESS we have original data.
+
+            const originalAmount = transactionToEdit.monto_original || transactionToEdit.cantidad;
+            const originalCurrency = transactionToEdit.moneda_original || currency;
+
+            setInputCurrency(originalCurrency);
+
+            const initialVal = originalAmount.toString();
+            const { decimal } = getSeparators(originalCurrency);
             const parts = initialVal.split('.');
             let localFormat = parts[0];
             if (parts.length > 1) {
                 localFormat = `${parts[0]}${decimal}${parts[1]}`;
             }
-            setMonto(formatNumber(localFormat, currency));
+            setMonto(formatNumber(localFormat, originalCurrency));
 
             setPilar(transactionToEdit.pilar);
             setCuenta(transactionToEdit.cuenta);
@@ -103,8 +120,23 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
 
         } else {
             resetForm(initialPillar);
+            setInputCurrency(currency); // Ensure we reset to current base currency
         }
     }, [transactionToEdit, initialPillar, currency]);
+
+    // Effect to fetch exchange rate when currencies differ
+    useEffect(() => {
+        const fetchRate = async () => {
+            if (inputCurrency === currency) {
+                setExchangeRate(1);
+                return;
+            }
+            // Small debounce/check to avoid unnecessary calls? Service has cache anyway.
+            const rate = await getExchangeRate(inputCurrency, currency);
+            setExchangeRate(rate);
+        };
+        fetchRate();
+    }, [inputCurrency, currency]);
 
     // Focus and Scroll Effect for Smart Navigation
     useEffect(() => {
@@ -141,7 +173,7 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         // If user typed valid digit, format it.
         const lastChar = val.slice(-1);
         if (/[0-9]/.test(lastChar) || lastChar === decimal || lastChar === group) {
-            setMonto(formatNumber(val, currency));
+            setMonto(formatNumber(val, inputCurrency));
         }
     };
 
@@ -149,11 +181,13 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         if (!monto) return alert("Ingresa un monto");
         setLoading(true);
 
-        const realAmount = parseToNumber(monto, currency);
-        if (isNaN(realAmount) || realAmount <= 0) {
+        const inputAmount = parseToNumber(monto, inputCurrency);
+        if (isNaN(inputAmount) || inputAmount <= 0) {
             setLoading(false);
             return alert("Monto inválido");
         }
+
+        const finalAmount = inputCurrency === currency ? inputAmount : inputAmount * exchangeRate;
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -164,14 +198,17 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         }
 
         const transactionData = {
-            cantidad: realAmount, // Use parsed value
+            cantidad: finalAmount,
             pilar: pilar,
             cuenta: cuenta,
             categoria: categoria,
             tag: tag ? tag.trim() : null,
             descripcion: categoria || 'Movimiento',
             fecha: transactionToEdit?.fecha || new Date().toISOString(),
-            user_id: user.id
+            user_id: user.id,
+            moneda_original: inputCurrency,
+            monto_original: inputAmount,
+            tasa_cambio: exchangeRate
         };
 
         try {
@@ -198,9 +235,9 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             // But here we are just clearing the form for next use.
             if (!transactionToEdit) resetForm();
 
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Error al conectar con Supabase");
+            alert(`Error al guardar: ${error.message || error.error_description || "Verifica la consola"}`);
         } finally {
             setLoading(false);
         }
@@ -312,19 +349,42 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             )
             }
 
-            {/* Amount */}
-            <div className="relative">
-                <span className="absolute left-4 top-4 text-slate-400 font-bold">$</span>
-                <input
-                    ref={montoRef}
-                    type="text"
-                    placeholder="0"
-                    className="w-full p-4 pl-8 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none border border-transparent focus:border-slate-200 dark:focus:border-slate-700 text-3xl font-bold text-slate-800 dark:text-white placeholder:text-slate-300 transition-colors"
-                    value={monto}
-                    onChange={handleAmountChange}
-                    inputMode="decimal"
-                />
+            {/* Amount & Currency */}
+            <div className="relative flex gap-2">
+                <div className="w-1/3">
+                    <select
+                        value={inputCurrency}
+                        onChange={(e) => setInputCurrency(e.target.value)}
+                        className="w-full h-full p-3 bg-slate-100 dark:bg-slate-700 rounded-xl font-bold text-slate-700 dark:text-white outline-none border-r-8 border-transparent"
+                    >
+                        {AVAILABLE_CURRENCIES.map(c => (
+                            <option key={c.code} value={c.code}>{c.code}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="relative w-2/3">
+                    <span className="absolute left-4 top-4 text-slate-400 font-bold">$</span>
+                    <input
+                        ref={montoRef}
+                        type="text"
+                        placeholder="0"
+                        className="w-full p-4 pl-8 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none border border-transparent focus:border-slate-200 dark:focus:border-slate-700 text-3xl font-bold text-slate-800 dark:text-white placeholder:text-slate-300 transition-colors"
+                        value={monto}
+                        onChange={handleAmountChange}
+                        inputMode="decimal"
+                    />
+                </div>
             </div>
+
+            {/* Conversion Preview */}
+            {inputCurrency !== currency && monto && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800 text-sm flex justify-between items-center animate-fade-in">
+                    <span className="text-blue-600 dark:text-blue-400 font-medium">Equivalente en {currency}:</span>
+                    <span className="font-bold text-blue-700 dark:text-blue-300">
+                        {formatCurrency(parseToNumber(monto, inputCurrency) * exchangeRate)}
+                    </span>
+                </div>
+            )}
 
             {/* Sticky Mobile Button Container */}
             <div className="pt-4 md:pt-0 sticky bottom-0 md:relative bg-gradient-to-t from-white via-white to-transparent dark:from-slate-900 dark:via-slate-900 pb-4 md:pb-0 -mx-6 px-6 md:mx-0 md:px-0 z-10 md:z-auto">
