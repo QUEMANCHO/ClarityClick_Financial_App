@@ -5,6 +5,8 @@ import { useCurrency } from '../context/CurrencyContext';
 
 import { Transaction } from '../types';
 import { getPillarBadgeStyle } from '../constants';
+import ExpenseFilters, { FilterState } from './ExpenseFilters';
+import FilterSummary from './FilterSummary';
 
 interface TransactionListProps {
     onEdit: (t: Transaction) => void;
@@ -15,6 +17,12 @@ interface TransactionListProps {
 export default function TransactionList({ onEdit, refreshTrigger, onDataChange }: TransactionListProps) {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
+    const [filters, setFilters] = useState<FilterState>({
+        category: '',
+        tag: '',
+        startDate: '',
+        endDate: ''
+    });
     const { formatCurrency } = useCurrency();
 
     const fetchTransactions = async () => {
@@ -22,11 +30,32 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('transacciones')
             .select('*')
             .eq('user_id', user.id)
-            .order('fecha', { ascending: false }); // Order by fecha
+            .order('fecha', { ascending: false });
+
+        if (filters.category) {
+            query = query.eq('categoria', filters.category);
+        }
+        if (filters.tag) {
+            query = query.ilike('tag', `%${filters.tag}%`);
+        }
+        if (filters.startDate) {
+            // Convert 'YYYY-MM-DD' (Local) to UTC Start of Day
+            const [y, m, d] = filters.startDate.split('-').map(Number);
+            const startUtc = new Date(y, m - 1, d).toISOString();
+            query = query.gte('fecha', startUtc);
+        }
+        if (filters.endDate) {
+            // Convert 'YYYY-MM-DD' (Local) to UTC End of Day
+            const [y, m, d] = filters.endDate.split('-').map(Number);
+            const endUtc = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
+            query = query.lte('fecha', endUtc);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error('Error fetching transactions:', error);
@@ -37,8 +66,20 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
     };
 
     useEffect(() => {
-        fetchTransactions();
-    }, [refreshTrigger]);
+        const timeoutId = setTimeout(() => {
+            fetchTransactions();
+        }, 300); // Debounce for text input
+        return () => clearTimeout(timeoutId);
+    }, [refreshTrigger, filters]);
+
+    const handleClearFilters = () => {
+        setFilters({
+            category: '',
+            tag: '',
+            startDate: '',
+            endDate: ''
+        });
+    };
 
     const handleDelete = async (id: number) => {
         if (window.confirm('¿Estás seguro de eliminar esta transacción?')) {
@@ -62,12 +103,35 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-100 dark:border-slate-800 p-6 transition-colors duration-300">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Historial de Transacciones</h2>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h2 className="text-xl font-bold text-slate-800 dark:text-white">Historial de Transacciones</h2>
+                {/* Filters added here if desired, but component handles its own layout mostly */}
+            </div>
 
-            {transactions.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                    <p>No hay transacciones registradas.</p>
-                    <p className="text-xs mt-1">Añade un movimiento nuevo para comenzar.</p>
+            <ExpenseFilters
+                filters={filters}
+                onFilterChange={setFilters}
+                onClear={handleClearFilters}
+            />
+
+            <FilterSummary transactions={transactions} />
+
+            {loading ? (
+                <div className="py-12 flex justify-center items-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+            ) : transactions.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                    <p className="font-medium">No se encontraron transacciones.</p>
+                    <p className="text-sm mt-1">Intenta ajustar los filtros o añade un nuevo movimiento.</p>
+                    {(filters.category || filters.tag || filters.startDate || filters.endDate) && (
+                        <button
+                            onClick={handleClearFilters}
+                            className="mt-4 text-blue-600 hover:underline text-sm font-bold"
+                        >
+                            Limpiar todos los filtros
+                        </button>
+                    )}
                 </div>
             ) : (
                 <>
@@ -94,6 +158,11 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
                                                     <span className="text-xs text-slate-400">
                                                         {t.cuenta || 'Sin cuenta'}
                                                         {t.categoria && t.categoria !== t.descripcion ? ` • ${t.categoria}` : ''}
+                                                    </span>
+                                                )}
+                                                {t.tag && (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wide ml-1 w-fit">
+                                                        {t.tag}
                                                     </span>
                                                 )}
                                             </div>
@@ -158,6 +227,12 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
                                         <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-slate-200">
                                             <Tag size={12} />
                                             {t.categoria}
+                                        </div>
+                                    )}
+                                    {t.tag && (
+                                        <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100 text-blue-600">
+                                            <Tag size={12} />
+                                            {t.tag}
                                         </div>
                                     )}
                                 </div>

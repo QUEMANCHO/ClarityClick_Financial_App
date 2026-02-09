@@ -19,6 +19,7 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
     const [pilar, setPilar] = useState('Gastar');
     const [cuenta, setCuenta] = useState('Efectivo');
     const [categoria, setCategoria] = useState('Otros');
+    const [tag, setTag] = useState('');
     const { currency } = useCurrency();
     const [loading, setLoading] = useState(false);
 
@@ -72,6 +73,7 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         setCuenta('Efectivo');
         // If not 'Gastar', category usually blank or custom, but 'Otros' is a safe default or empty?
         setCategoria(pilarOverride && pilarOverride !== 'Gastar' ? '' : 'Otros');
+        setTag('');
     };
 
     useEffect(() => {
@@ -88,6 +90,7 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             setPilar(transactionToEdit.pilar);
             setCuenta(transactionToEdit.cuenta);
             setCategoria(transactionToEdit.categoria || 'Otros');
+            setTag(transactionToEdit.tag || '');
 
             // Scroll to form and focus amount for quick edit
             setTimeout(() => {
@@ -165,8 +168,9 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             pilar: pilar,
             cuenta: cuenta,
             categoria: categoria,
+            tag: tag ? tag.trim() : null,
             descripcion: categoria || 'Movimiento',
-            fecha: new Date().toISOString(),
+            fecha: transactionToEdit?.fecha || new Date().toISOString(),
             user_id: user.id
         };
 
@@ -281,6 +285,17 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
                             </button>
                         ))}
                     </div>
+                    {/* Optional Tag for Expenses */}
+                    <div className="mt-4 animate-fade-in">
+                        <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Etiqueta <span className="text-xs text-slate-400 font-normal">(Opcional)</span></label>
+                        <input
+                            type="text"
+                            placeholder="Ej: Cena familiar, Viaje Pereira, etc."
+                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none border border-transparent focus:border-slate-200 dark:focus:border-slate-700 text-sm dark:text-white placeholder:text-slate-400"
+                            value={tag}
+                            onChange={(e) => setTag(e.target.value)}
+                        />
+                    </div>
                 </div>
             ) : (
                 <div className="animate-fade-in">
@@ -294,7 +309,8 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
                         onChange={(e) => setCategoria(e.target.value)}
                     />
                 </div>
-            )}
+            )
+            }
 
             {/* Amount */}
             <div className="relative">
@@ -322,6 +338,6 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
                     {loading ? 'Sincronizando...' : transactionToEdit ? 'Actualizar Movimiento' : 'Registrar'}
                 </button>
             </div>
-        </form>
+        </form >
     );
 }

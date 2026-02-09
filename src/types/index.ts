@@ -6,6 +6,7 @@ export interface Transaction {
     pilar: 'Ganar' | 'Gastar' | 'Ahorrar' | 'Invertir' | string;
     cuenta: string;
     categoria: string;
+    tag?: string;
     user_id?: string;
 }
 
