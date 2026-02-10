@@ -103,10 +103,18 @@ export default function InvestmentGoals() {
     const handleSave = async () => {
         if (!nombre || !montoObjetivo || !fechaLimite) return alert('Completa los campos obligatorios');
 
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            alert('Usuario no autenticado');
+            return;
+        }
+
         const realObjetivo = parseToNumber(montoObjetivo, currency);
         const realActual = parseToNumber(montoActual, currency) || 0;
 
         const newGoal = {
+            user_id: user.id,
             nombre,
             monto_objetivo: realObjetivo,
             monto_actual: realActual,
