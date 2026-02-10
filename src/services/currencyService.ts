@@ -2,26 +2,15 @@ const API_KEY = import.meta.env.VITE_EXCHANGE_RATE_API_KEY;
 const CACHE_KEY_PREFIX = 'exchange_rate_matrix_';
 const CACHE_DURATION_MS = 3600 * 1000; // 1 hour
 
-interface ExchangeRateResponse {
-    result: string;
-    base_code: string;
-    conversion_rates: Record<string, number>;
-    time_last_update_unix: number;
+// Open Exchange Rates Response Interface
+interface OpenExchangeRatesResponse {
+    disclaimer: string;
+    license: string;
+    timestamp: number;
+    base: string;
+    rates: Record<string, number>;
 }
 
-/**
- * Fetches exchange rates for a given base currency.
- * Caches the result to minimize API calls.
- */
-/**
- * Fetches exchange rates.
- * IMPORTANT: We now ALWAYS fetch based on 'USD' because the Free Tier API
- * often restricts the base currency to USD or EUR.
- * 
- * We will ignore the `baseCurrency` argument for the Network Request, 
- * but we can still return the matrix. 
- * Since our Cross-Rate logic in Context handles any base, having USD-based rates is sufficient.
- */
 // Real Market Rates (Approx. Feb 2026) to be used ONLY if API fails completely.
 // Base: USD
 const FALLBACK_RATES: Record<string, number> = {
@@ -49,6 +38,7 @@ export const getExchangeRateMatrix = async (preferredBase: string): Promise<Reco
             const parsed = JSON.parse(cachedData);
             if (parsed && parsed.rates && Object.keys(parsed.rates).length > 0 && parsed.timestamp) {
                 if (Date.now() - parsed.timestamp < CACHE_DURATION_MS) {
+                    console.info(`%c [CurrencyService] Cache Válido (Base: ${parsed.base || 'N/A'})`, 'color: #3b82f6');
                     return parsed.rates;
                 }
             }
@@ -58,9 +48,11 @@ export const getExchangeRateMatrix = async (preferredBase: string): Promise<Reco
     }
 
     // 2. Define Fetch Strategy (Adaptive)
-    // We try the preferred base first. If that fails (e.g. 403 Restricted), we try USD, then EUR.
-    const candidates = [preferredBase, 'USD', 'EUR'];
-    // Remove duplicates (e.g. if preferred is USD)
+    // Open Exchange Rates Free Tier allows ONLY 'USD' base.
+    // However, enterprise plans allow changing base. 
+    // We try 'USD' first if preferred is not set, or we try preferred then USD.
+    // Given the prompt "Mantener moneda base COP", we try COP first.
+    const candidates = [preferredBase, 'USD'];
     const basesToTry = [...new Set(candidates)];
 
     for (const base of basesToTry) {
@@ -70,40 +62,37 @@ export const getExchangeRateMatrix = async (preferredBase: string): Promise<Reco
                 break; // Go to fallback
             }
 
-            console.log(`[CurrencyService] Attempting fetch for base: ${base}`);
-            const response = await fetch(`https://v6.exchangerate-api.com/v6/${API_KEY}/latest/${base}?t=${Date.now()}`);
+            // OER Endpoint
+            const url = `https://openexchangerates.org/api/latest.json?app_id=${API_KEY}&base=${base}`;
+
+            const response = await fetch(url, {
+                mode: 'cors'
+            });
 
             if (response.ok) {
-                const data: ExchangeRateResponse = await response.json();
-                if (data.result === 'success' && data.conversion_rates) {
-                    // Success!
-                    // If we fetched a fallback (e.g. requested COP but got USD), 
-                    // the cross-rate logic in Context handles it properly providing we return these rates.
-                    // However, for consistency, we cache these rates under the *actual* base we found.
-                    // But to satisfy the *call* for 'COP', we might want to return them.
-                    // The Context expects rates relative to *something*. 
+                const data: OpenExchangeRatesResponse = await response.json();
 
-                    // Ideally, we cache what we got.
-                    const realBase = data.base_code;
+                // OER returns 'rates', not 'conversion_rates'
+                if (data && data.rates) {
+                    // Success!
+                    console.info(`%c [CurrencyService] Conexión Real Establecida (Base: ${data.base})`, 'color: #10b981; font-weight: bold;');
+
+                    const realBase = data.base;
                     const realCacheKey = `${CACHE_KEY_PREFIX}${realBase}`;
+
+                    // Update Cache
                     localStorage.setItem(realCacheKey, JSON.stringify({
-                        rates: data.conversion_rates,
-                        timestamp: Date.now()
+                        rates: data.rates,
+                        timestamp: Date.now(),
+                        base: realBase
                     }));
 
-                    // If we requested COP but got USD, we return USD rates.
-                    // The Context must know these are USD rates?
-                    // The API response doesn't explicitly tell the Context "These are USD rates" 
-                    // except via the fact that `rates['USD'] === 1`.
-                    // Our `convertAmount` logic `(amount / rateFrom) * rateTo` works 
-                    // regardless of the base, efficiently normalizing to the matrix's base.
-
-                    return data.conversion_rates;
+                    return data.rates;
                 }
             } else {
                 console.warn(`[CurrencyService] Failed to fetch ${base}: ${response.status}`);
-                // If 403, it likely means this Base is not allowed. Check next candidate.
-                if (response.status === 403) {
+                // 403 likely means Base Restricted (Free Tier)
+                if (response.status === 403 || response.status === 401) {
                     continue; // Try next base
                 }
             }
@@ -113,10 +102,7 @@ export const getExchangeRateMatrix = async (preferredBase: string): Promise<Reco
     }
 
     // 3. Emergency Fallback
-    console.warn('[CurrencyService] All fetch attempts failed. Using FALLBACK rates (Real Market Data).');
-
-    // Fallback is base USD. We must return it.
-    // Our Context cross-rate logic handles Base USD perfectly even if user wants COP.
+    console.warn('[CurrencyService] Todos los intentos de conexión fallaron. Activando Modo Contingencia (Datos Locales).');
     return FALLBACK_RATES;
 };
 
