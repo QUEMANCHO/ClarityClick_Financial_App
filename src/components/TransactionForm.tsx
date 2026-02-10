@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabaseClient';
 import { Transaction } from '../types';
 
 import { PILARES, CUENTAS, CATEGORIAS } from '../constants';
-import { getExchangeRate } from '../services/currencyService';
 import { AVAILABLE_CURRENCIES } from '../context/CurrencyContext';
 
 
@@ -22,9 +21,8 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
     const [cuenta, setCuenta] = useState('Efectivo');
     const [categoria, setCategoria] = useState('Otros');
     const [tag, setTag] = useState('');
-    const { currency, formatCurrency } = useCurrency();
+    const { currency, formatCurrency, convertAmount } = useCurrency();
     const [inputCurrency, setInputCurrency] = useState(currency);
-    const [exchangeRate, setExchangeRate] = useState(1);
     const [loading, setLoading] = useState(false);
 
     // Refs for scrolling and focus
@@ -79,7 +77,6 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         setCategoria(pilarOverride && pilarOverride !== 'Gastar' ? '' : 'Otros');
         setTag('');
         setInputCurrency(currency);
-        setExchangeRate(1);
     };
 
     useEffect(() => {
@@ -124,20 +121,6 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         }
     }, [transactionToEdit, initialPillar, currency]);
 
-    // Effect to fetch exchange rate when currencies differ
-    useEffect(() => {
-        const fetchRate = async () => {
-            if (inputCurrency === currency) {
-                setExchangeRate(1);
-                return;
-            }
-            // Small debounce/check to avoid unnecessary calls? Service has cache anyway.
-            const rate = await getExchangeRate(inputCurrency, currency);
-            setExchangeRate(rate);
-        };
-        fetchRate();
-    }, [inputCurrency, currency]);
-
     // Focus and Scroll Effect for Smart Navigation
     useEffect(() => {
         if (initialPillar) {
@@ -177,6 +160,14 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         }
     };
 
+    // Calculate equivalent value for display
+    // STRICT REACTIVITY: This depends on monto, inputCurrency, and currency (context)
+    const equivalentValue = (() => {
+        const inputAmount = parseToNumber(monto, inputCurrency);
+        if (isNaN(inputAmount)) return 0;
+        return convertAmount(inputAmount, inputCurrency);
+    })();
+
     const handleGuardar = async () => {
         if (!monto) return alert("Ingresa un monto");
         setLoading(true);
@@ -187,7 +178,14 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             return alert("Monto inválido");
         }
 
-        const finalAmount = inputCurrency === currency ? inputAmount : inputAmount * exchangeRate;
+        // Final Amount for DB (Standardized to Base Currency: COP)
+        // We ALWAYS store the 'canonical' value in COP so aggregations work correctly.
+        const finalAmount = convertAmount(inputAmount, inputCurrency, 'COP');
+
+        // Validation: If no rate available, finalAmount might be equal to inputAmount (fallback)
+        if (inputCurrency !== 'COP' && finalAmount === inputAmount && inputAmount > 0) {
+            console.warn("Saving transaction with 1:1 conversion to COP (Potential rate failure)");
+        }
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -198,7 +196,7 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         }
 
         const transactionData = {
-            cantidad: finalAmount,
+            cantidad: finalAmount, // Saved in COP
             pilar: pilar,
             cuenta: cuenta,
             categoria: categoria,
@@ -208,7 +206,8 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             user_id: user.id,
             moneda_original: inputCurrency,
             monto_original: inputAmount,
-            tasa_cambio: exchangeRate
+            // Rate = COP Value / Original Value
+            tasa_cambio: inputAmount !== 0 ? finalAmount / inputAmount : 1
         };
 
         try {
@@ -378,10 +377,16 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
 
             {/* Conversion Preview */}
             {inputCurrency !== currency && monto && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800 text-sm flex justify-between items-center animate-fade-in">
-                    <span className="text-blue-600 dark:text-blue-400 font-medium">Equivalente en {currency}:</span>
-                    <span className="font-bold text-blue-700 dark:text-blue-300">
-                        {formatCurrency(parseToNumber(monto, inputCurrency) * exchangeRate)}
+                <div className={`p-3 rounded-xl border text-sm flex justify-between items-center animate-fade-in transition-colors
+                    ${equivalentValue === 0
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800'
+                        : 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800'}`
+                }>
+                    <span className={`${equivalentValue === 0 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'} font-medium`}>
+                        {equivalentValue === 0 ? 'Tasa no disponible' : `Equivalente en ${currency}:`}
+                    </span>
+                    <span className={`font-bold ${equivalentValue === 0 ? 'text-red-700 dark:text-red-300' : 'text-blue-700 dark:text-blue-300'}`}>
+                        {equivalentValue === 0 ? '---' : formatCurrency(equivalentValue)}
                     </span>
                 </div>
             )}

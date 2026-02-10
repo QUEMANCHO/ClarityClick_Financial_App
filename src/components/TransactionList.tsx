@@ -173,7 +173,15 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
                                             </span>
                                         </td>
                                         <td className="py-3 text-right font-bold text-slate-900 dark:text-white">
-                                            {formatCurrency(t.monto_original || t.cantidad, t.moneda_original || 'COP')}
+                                            {/* Display converted value in Current App Currency */}
+                                            {formatCurrency(t.cantidad, 'COP')}
+                                            {/* Optional: Show original in tooltip or subtext if different
+                                            <div className="text-xs text-slate-400 font-normal">
+                                                {t.moneda_original && t.moneda_original !== currency && 
+                                                    `(${t.monto_original} ${t.moneda_original})`
+                                                }
+                                            </div>
+                                            */}
                                         </td>
                                         <td className="py-3 text-center">
                                             <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -210,7 +218,7 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-lg text-slate-900 dark:text-white">
-                                            {formatCurrency(t.monto_original || t.cantidad, t.moneda_original || 'COP')}
+                                            {formatCurrency(t.cantidad, 'COP')}
                                         </p>
                                         <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 ${getPillarBadgeStyle(t.pilar)}`}>
                                             {t.pilar}

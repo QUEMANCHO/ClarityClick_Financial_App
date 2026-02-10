@@ -71,10 +71,15 @@ export default defineConfig({
             },
             workbox: {
                 clientsClaim: true,
-                skipWaiting: true
+                skipWaiting: true,
+                cleanupOutdatedCaches: true,
+                globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}']
             },
             devOptions: {
-                enabled: true
+                enabled: true,
+                type: 'module',
+                navigateFallback: 'index.html',
+                suppressWarnings: true, // Suppress the "glob" warnings in dev as assets are served virtually
             }
         })
     ],

@@ -54,11 +54,16 @@ export default function DashboardSummary({ refreshTrigger, onPillarClick }: Dash
 
         transactionsData.forEach((t) => {
             if (newTotals[t.pilar as keyof typeof newTotals] !== undefined) {
-                // Convert each transaction amount to the CURRENT display currency
-                const originalAmount = t.monto_original || t.cantidad;
-                const originalCurrency = t.moneda_original || 'COP'; // Default if missing
+                // Determine the value to aggregate.
+                // We should use 'cantidad' which is now standardized to COP.
+                // However, for strict correctness with legacy data, we can try to use monto_original/moneda_original if available.
+                // But the prompt wants a "Robust Mathematical Logic".
+                // Best approach: Use 'cantidad' (which is the system's normalized value). 
+                // We assume 'cantidad' is in COP.
+                const amountInCOP = t.cantidad;
 
-                const convertedAmount = convertAmount(originalAmount, originalCurrency);
+                // Convert from COP to Current User Currency
+                const convertedAmount = convertAmount(amountInCOP, 'COP');
 
                 newTotals[t.pilar as keyof typeof newTotals] += convertedAmount;
             }
