@@ -1,4 +1,4 @@
-const API_KEY = import.meta.env.VITE_OPEN_EXCHANGE_Production || import.meta.env.VITE_EXCHANGE_RATE_API_KEY;
+const API_KEY = import.meta.env.VITE_OPEN_EXCHANGE_APP_ID || import.meta.env.VITE_OPEN_EXCHANGE_Production || import.meta.env.VITE_EXCHANGE_RATE_API_KEY;
 const CACHE_KEY_PREFIX = 'exchange_rate_matrix_';
 const CACHE_DURATION_MS = 3600 * 1000; // 1 hour
 
