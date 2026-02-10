@@ -13,7 +13,7 @@ export default function ExpensesPieChart({ refreshTrigger }: ExpensesPieChartPro
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMounted, setIsMounted] = useState(false); // Add mounted state
-    const { formatCurrency } = useCurrency();
+    const { formatCurrency, convertAmount, currency } = useCurrency();
 
     // Set mounted on client
     useEffect(() => {
@@ -28,7 +28,8 @@ export default function ExpensesPieChart({ refreshTrigger }: ExpensesPieChartPro
 
                 const { data: transactions, error } = await supabase
                     .from('transacciones')
-                    .select('cantidad, categoria, pilar')
+                    // Fetch 'moneda_original' so we can convert properly
+                    .select('cantidad, categoria, pilar, moneda_original')
                     .eq('user_id', user.id);
 
                 if (error) throw error;
@@ -40,7 +41,11 @@ export default function ExpensesPieChart({ refreshTrigger }: ExpensesPieChartPro
                     if (t.pilar === 'Gastar') {
                         const cat = t.categoria || 'Otros'; // Fallback if null
                         if (!categoryData[cat]) categoryData[cat] = 0;
-                        categoryData[cat] += t.cantidad;
+
+                        // Convert amount to current selected currency
+                        // If t.moneda_original is missing, fallback to 'COP'
+                        const amount = convertAmount(t.cantidad, t.moneda_original || 'COP');
+                        categoryData[cat] += amount;
                     }
                 });
 
@@ -59,7 +64,7 @@ export default function ExpensesPieChart({ refreshTrigger }: ExpensesPieChartPro
         };
 
         fetchExpenses();
-    }, [refreshTrigger]);
+    }, [refreshTrigger, currency, convertAmount]);
 
     if (loading) return <div className="h-[350px] w-full flex items-center justify-center text-slate-400">Cargando gráfico...</div>;
 

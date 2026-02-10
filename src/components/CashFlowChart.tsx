@@ -11,7 +11,7 @@ export default function CashFlowChart({ refreshTrigger }: CashFlowChartProps) {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMounted, setIsMounted] = useState(false); // Add mounted state
-    const { formatCurrency } = useCurrency();
+    const { formatCurrency, convertAmount, currency } = useCurrency();
 
     // Set mounted on client
     useEffect(() => {
@@ -26,7 +26,8 @@ export default function CashFlowChart({ refreshTrigger }: CashFlowChartProps) {
 
                 const { data: transactions, error } = await supabase
                     .from('transacciones')
-                    .select('cantidad, pilar, fecha')
+                    // Fetch 'moneda_original' for conversion
+                    .select('cantidad, pilar, fecha, moneda_original')
                     .eq('user_id', user.id)
                     .order('fecha', { ascending: true });
 
@@ -45,7 +46,9 @@ export default function CashFlowChart({ refreshTrigger }: CashFlowChartProps) {
                             monthlyData[monthKey] = { name: monthName, Ganar: 0, Gastar: 0 };
                         }
 
-                        monthlyData[monthKey][t.pilar as 'Ganar' | 'Gastar'] += t.cantidad;
+                        // Convert amount
+                        const amount = convertAmount(t.cantidad, t.moneda_original || 'COP');
+                        monthlyData[monthKey][t.pilar as 'Ganar' | 'Gastar'] += amount;
                     }
                 });
 
@@ -60,7 +63,7 @@ export default function CashFlowChart({ refreshTrigger }: CashFlowChartProps) {
         };
 
         fetchData();
-    }, [refreshTrigger]);
+    }, [refreshTrigger, currency, convertAmount]);
 
     if (loading) return <div className="h-[350px] w-full flex items-center justify-center text-slate-400">Cargando gráfico...</div>;
 

@@ -6,7 +6,7 @@ import { useCurrency } from '../context/CurrencyContext';
 export default function AccountsSummary() {
     const [accounts, setAccounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
-    const { formatCurrency } = useCurrency();
+    const { formatCurrency, convertAmount, currency } = useCurrency();
 
     useEffect(() => {
         const fetchAccounts = async () => {
@@ -15,30 +15,23 @@ export default function AccountsSummary() {
 
             const { data } = await supabase
                 .from('transacciones')
-                .select('cantidad, cuenta, pilar')
+                // Fetch 'moneda_original'
+                .select('cantidad, cuenta, pilar, moneda_original')
                 .eq('user_id', user.id);
 
             if (data) {
                 const accs: Record<string, number> = {};
                 data.forEach((t: any) => {
                     if (!accs[t.cuenta]) accs[t.cuenta] = 0;
-                    // Logic: Ganar adds to account, Gastar subtracts?, Ahorrar?, Invertir?
-                    // For now, let's assume simple inflow/outflow logic or just sum by account if they are buckets.
-                    // Usually: Ganar = Inflow (+), Gastar = Outflow (-). 
-                    // Ahorrar/Invertir might be transfers or outflows depending on the model.
-                    // Given the simplicity, let's assume 'Ganar' adds, others subtract from the account balance?
-                    // Or maybe the user just wants to see activity totals?
-                    // "Muestra el desglose por 'Efectivo', 'Bancolombia', etc."
-                    // I will assume simple summation for now but usually expense subtracts.
-                    // However, to keep it simple and safe (avoiding negative numbers if not tracked correctly), 
-                    // I will calculate NET balance: (Ganar) - (Gastar + Ahorrar + Invertir).
-                    // Wait, Ahorrar/Invertir are usually assets moving to another place, but here 'Cuenta' is likely the Payment Method / Source.
-                    // So: Ganar (Into Account) - Gastar (From Account) - Ahorrar (From Account) - Invertir (From Account).
 
+                    // Convert amount
+                    const amount = convertAmount(t.cantidad, t.moneda_original || 'COP');
+
+                    // Logic: Ganar adds to account, Others subtract?
                     if (t.pilar === 'Ganar') {
-                        accs[t.cuenta] += t.cantidad;
+                        accs[t.cuenta] += amount;
                     } else {
-                        accs[t.cuenta] -= t.cantidad;
+                        accs[t.cuenta] -= amount;
                     }
                 });
                 setAccounts(accs);
@@ -46,7 +39,7 @@ export default function AccountsSummary() {
             setLoading(false);
         };
         fetchAccounts();
-    }, []);
+    }, [currency, convertAmount]);
 
     const getIcon = (name: string) => {
         if (name.includes('Efectivo')) return <Coins className="text-emerald-500" />;
