@@ -17,13 +17,54 @@ interface TransactionListProps {
 export default function TransactionList({ onEdit, refreshTrigger, onDataChange }: TransactionListProps) {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
+    const [availableTags, setAvailableTags] = useState<string[]>([]); // New State
     const [filters, setFilters] = useState<FilterState>({
         category: '',
-        tag: '',
+        tags: [],
         startDate: '',
-        endDate: ''
+        endDate: '',
+        pilar: '' // New Filter State
     });
     const { formatCurrency } = useCurrency();
+
+    // Fetch Unique Tags (with Legacy Support)
+    useEffect(() => {
+        const fetchTags = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            let query = supabase
+                .from('transacciones')
+                .select('tag, categoria')
+                .eq('user_id', user.id);
+
+            // Filter tags based on current selection (only Pilar matters for available tags context)
+            if (filters.pilar) {
+                query = query.eq('pilar', filters.pilar);
+            }
+
+            const { data } = await query;
+
+            if (data) {
+                // Collect tags. For 'Gastar', mostly use 'tag'. 
+                // For others, checking 'categoria' too because historically inputs were saved there.
+                const rawTags = data.flatMap(t => {
+                    const items = [];
+                    if (t.tag) items.push(t.tag);
+                    // For non-Gastar, category often acted as the tag/description
+                    if (filters.pilar && filters.pilar !== 'Gastar' && t.categoria && t.categoria !== 'Otros') {
+                        items.push(t.categoria);
+                    }
+                    return items;
+                });
+
+                const uniqueTags = Array.from(new Set(rawTags.filter(Boolean)));
+                setAvailableTags(uniqueTags.sort());
+            }
+        };
+        fetchTags();
+    }, [refreshTrigger, filters.pilar]); // Only refresh tags when pilar changess
+
 
     const fetchTransactions = async () => {
         setLoading(true);
@@ -39,8 +80,18 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
         if (filters.category) {
             query = query.eq('categoria', filters.category);
         }
-        if (filters.tag) {
-            query = query.ilike('tag', `%${filters.tag}%`);
+        if (filters.pilar) { // Apply Pilar Filter
+            query = query.eq('pilar', filters.pilar);
+        }
+        if (filters.tags && filters.tags.length > 0) {
+            if (filters.pilar === 'Gastar') {
+                // Standard tag filtering for expenses
+                query = query.in('tag', filters.tags);
+            } else {
+                // For Income/Savings, check both Tag and Category (Legacy Support)
+                const tagsStr = filters.tags.map(t => `"${t}"`).join(',');
+                query = query.or(`tag.in.(${tagsStr}),categoria.in.(${tagsStr})`);
+            }
         }
         if (filters.startDate) {
             // Convert 'YYYY-MM-DD' (Local) to UTC Start of Day
@@ -75,9 +126,10 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
     const handleClearFilters = () => {
         setFilters({
             category: '',
-            tag: '',
+            tags: [],
             startDate: '',
-            endDate: ''
+            endDate: '',
+            pilar: ''
         });
     };
 
@@ -112,6 +164,7 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
                 filters={filters}
                 onFilterChange={setFilters}
                 onClear={handleClearFilters}
+                availableTags={availableTags} // Pass Tags
             />
 
             <FilterSummary transactions={transactions} />
@@ -124,7 +177,7 @@ export default function TransactionList({ onEdit, refreshTrigger, onDataChange }
                 <div className="text-center py-12 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
                     <p className="font-medium">No se encontraron transacciones.</p>
                     <p className="text-sm mt-1">Intenta ajustar los filtros o añade un nuevo movimiento.</p>
-                    {(filters.category || filters.tag || filters.startDate || filters.endDate) && (
+                    {(filters.category || (filters.tags && filters.tags.length > 0) || filters.startDate || filters.endDate || filters.pilar) && (
                         <button
                             onClick={handleClearFilters}
                             className="mt-4 text-blue-600 hover:underline text-sm font-bold"

@@ -24,8 +24,9 @@ export default function AccountsSummary() {
                 data.forEach((t: any) => {
                     if (!accs[t.cuenta]) accs[t.cuenta] = 0;
 
-                    // Convert amount
-                    const amount = convertAmount(t.cantidad, t.moneda_original || 'COP');
+                    // FIX: 'cantidad' is stored in COP (System Base). 'moneda_original' is just metadata.
+                    // We must convert from 'COP' to the user's current display currency.
+                    const amount = convertAmount(t.cantidad, 'COP');
 
                     // Logic: Ganar adds to account, Others subtract?
                     if (t.pilar === 'Ganar') {

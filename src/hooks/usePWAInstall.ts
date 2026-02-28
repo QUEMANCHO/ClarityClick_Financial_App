@@ -17,14 +17,14 @@ export function usePWAInstall() {
             // Stash the event so it can be triggered later.
             setDeferredPrompt(e as BeforeInstallPromptEvent);
             setIsInstallable(true);
-            console.log('👋 PWA Install Prompt captured!');
+            // console.log('👋 PWA Install Prompt captured!');
         };
 
         const handleAppInstalled = () => {
             setIsAppInstalled(true);
             setIsInstallable(false);
             setDeferredPrompt(null);
-            console.log('✅ PWA Installed successfully');
+            // console.log('✅ PWA Installed successfully');
         };
 
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -32,6 +32,7 @@ export function usePWAInstall() {
 
         // Check if already in standalone mode
         if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+            // eslint-disable-next-line
             setIsAppInstalled(true);
         }
 
@@ -47,11 +48,11 @@ export function usePWAInstall() {
             return;
         }
 
-        console.log('🚀 Triggering install prompt...');
+        // console.log('🚀 Triggering install prompt...');
         deferredPrompt.prompt();
 
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User response to install prompt: ${outcome}`);
+        await deferredPrompt.userChoice;
+        // console.log(`User response to install prompt: ${outcome}`);
 
         setDeferredPrompt(null);
         setIsInstallable(false);

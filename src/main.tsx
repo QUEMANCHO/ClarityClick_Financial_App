@@ -7,8 +7,8 @@ import './index.css' // <--- ESTA LÍNEA ES VITAL
 // Register service worker
 const updateSW = registerSW({
   immediate: true,
-  onRegistered(r) {
-    console.log('SW Registered:', r);
+  onRegistered(_r) {
+    // console.log('SW Registered:', r);
   },
   onRegisterError(error) {
     console.error('SW Registration Error:', error);
@@ -19,7 +19,7 @@ const updateSW = registerSW({
     }
   },
   onOfflineReady() {
-    console.log('App ready to work offline')
+    // console.log('App ready to work offline')
   },
 })
 

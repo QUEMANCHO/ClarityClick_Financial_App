@@ -1,4 +1,4 @@
-// @ts-ignore
+
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { getExchangeRateMatrix } from '../services/currencyService';
@@ -71,7 +71,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             /*
             if (rates && Object.keys(rates).length > 0) {
                 console.group('Currency Audit: Rates Loaded (Base: USD)');
-                console.log(`App Target Currency: ${currency}`);
+                // console.log(`App Target Currency: ${currency}`);
                 console.table(rates);
                 console.groupEnd();
             } else {

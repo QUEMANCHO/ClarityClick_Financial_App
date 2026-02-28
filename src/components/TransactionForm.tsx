@@ -16,6 +16,11 @@ interface TransactionFormProps {
 }
 
 export default function TransactionForm({ onSuccess, transactionToEdit, onCancelEdit, initialPillar }: TransactionFormProps) {
+    // State for Goals
+    const [goals, setGoals] = useState<{ id: number; nombre: string }[]>([]);
+    const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
+
+    // Form State
     const [monto, setMonto] = useState('');
     const [pilar, setPilar] = useState('Gastar');
     const [cuenta, setCuenta] = useState('Efectivo');
@@ -25,14 +30,21 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
     const [inputCurrency, setInputCurrency] = useState(currency);
     const [loading, setLoading] = useState(false);
 
+    useEffect(() => {
+        const fetchGoals = async () => {
+            const { data } = await supabase.from('metas').select('id, nombre').order('nombre');
+            if (data) setGoals(data);
+        };
+        fetchGoals();
+    }, []);
+
     // Refs for scrolling and focus
     const formRef = useRef<HTMLFormElement>(null);
     const montoRef = useRef<HTMLInputElement>(null);
     const categoriaRef = useRef<HTMLInputElement>(null);
 
-    // Helper to identify separators based on currency
+    // ... helpers ...
     const getSeparators = (curr: string) => {
-        // Simple heuristic: USD and MXN use comma for thousands, others (COP, EUR) use dot.
         if (['USD', 'MXN'].includes(curr)) return { group: ',', decimal: '.' };
         return { group: '.', decimal: ',' };
     };
@@ -40,31 +52,18 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
     const formatNumber = (value: string, curr: string) => {
         if (!value) return '';
         const { group, decimal } = getSeparators(curr);
-
-        // Remove existing invalid chars (everything that is not digit or decimal separator)
-        // We allow one decimal separator.
-        // First, normalize: remove group separators
-        let raw = value.split(group).join('');
-
-        // If we have multiple decimals, keep only first (basic protection)
+        const raw = value.split(group).join('');
         const parts = raw.split(decimal);
-        let integerPart = parts[0].replace(/\D/g, ''); // Ensure only digits
-        let decimalPart = parts.length > 1 ? parts[1].replace(/\D/g, '') : null;
-
-        // Format integer part with thousands
+        const integerPart = parts[0].replace(/\D/g, '');
+        const decimalPart = parts.length > 1 ? parts[1].replace(/\D/g, '') : null;
         const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, group);
-
-        if (decimalPart !== null) {
-            return `${formattedInteger}${decimal}${decimalPart}`;
-        }
+        if (decimalPart !== null) return `${formattedInteger}${decimal}${decimalPart}`;
         return formattedInteger;
     };
 
     const parseToNumber = (displayValue: string, curr: string): number => {
         const { group, decimal } = getSeparators(curr);
-        // Remove groups
         let raw = displayValue.split(group).join('');
-        // Replace decimal with standard dot
         raw = raw.replace(decimal, '.');
         return parseFloat(raw);
     };
@@ -73,20 +72,14 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         setMonto('');
         setPilar(pilarOverride || 'Gastar');
         setCuenta('Efectivo');
-        // If not 'Gastar', category usually blank or custom, but 'Otros' is a safe default or empty?
         setCategoria(pilarOverride && pilarOverride !== 'Gastar' ? '' : 'Otros');
         setTag('');
         setInputCurrency(currency);
+        setSelectedGoalId(null);
     };
 
     useEffect(() => {
         if (transactionToEdit) {
-            // ... existing edit logic ...
-            // We need to handle how we show the amount. 
-            // Ideally, we show the ORIGINAL amount and currency if available.
-            // But for now, let's stick to the simpler approach of editing the converted amount 
-            // UNLESS we have original data.
-
             const originalAmount = transactionToEdit.monto_original || transactionToEdit.cantidad;
             const originalCurrency = transactionToEdit.moneda_original || currency;
 
@@ -105,11 +98,11 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             setCuenta(transactionToEdit.cuenta);
             setCategoria(transactionToEdit.categoria || 'Otros');
             setTag(transactionToEdit.tag || '');
+            // @ts-expect-error
+            if (transactionToEdit.meta_id) setSelectedGoalId(transactionToEdit.meta_id);
 
-            // Scroll to form and focus amount for quick edit
             setTimeout(() => {
                 formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                // Small delay for focus to ensure scroll started/completed or UI rendered
                 setTimeout(() => {
                     montoRef.current?.focus();
                 }, 300);
@@ -117,51 +110,37 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
 
         } else {
             resetForm(initialPillar);
-            setInputCurrency(currency); // Ensure we reset to current base currency
+            setInputCurrency(currency);
         }
     }, [transactionToEdit, initialPillar, currency]);
 
-    // Focus and Scroll Effect for Smart Navigation
+    // Focus and Scroll Effect
     useEffect(() => {
         if (initialPillar) {
-            // 1. Scroll to form
             formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            // 2. Focus logic
             setTimeout(() => {
                 if (initialPillar === 'Gastar') {
-                    // For 'Gastar', category is buttons, so focus 'Monto'
                     montoRef.current?.focus();
                 } else {
-                    // For others, we have a text input for category/tag
-                    // Focus that first
                     categoriaRef.current?.focus();
                 }
-            }, 300); // 300ms delay to allow tab switching/animation
+            }, 300);
         }
     }, [initialPillar]);
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
-        // Allow user to clear
         if (val === '') {
             setMonto('');
             return;
         }
-
-        // Basic validation: Check if last char is valid
         const { group, decimal } = getSeparators(currency);
-
-        // If user typed the decimal separator, allow it if it's the first one
-        // If user typed valid digit, format it.
         const lastChar = val.slice(-1);
         if (/[0-9]/.test(lastChar) || lastChar === decimal || lastChar === group) {
             setMonto(formatNumber(val, inputCurrency));
         }
     };
 
-    // Calculate equivalent value for display
-    // STRICT REACTIVITY: This depends on monto, inputCurrency, and currency (context)
     const equivalentValue = (() => {
         const inputAmount = parseToNumber(monto, inputCurrency);
         if (isNaN(inputAmount)) return 0;
@@ -178,16 +157,12 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             return alert("Monto inválido");
         }
 
-        // Final Amount for DB (Standardized to Base Currency: COP)
-        // We ALWAYS store the 'canonical' value in COP so aggregations work correctly.
         const finalAmount = convertAmount(inputAmount, inputCurrency, 'COP');
 
-        // Validation: If no rate available, finalAmount might be equal to inputAmount (fallback)
         if (inputCurrency !== 'COP' && finalAmount === inputAmount && inputAmount > 0) {
-            console.warn("Saving transaction with 1:1 conversion to COP (Potential rate failure)");
+            console.warn("Saving transaction with 1:1 conversion to COP");
         }
 
-        // Get current user
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
@@ -196,31 +171,29 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
         }
 
         const transactionData = {
-            cantidad: finalAmount, // Saved in COP
+            cantidad: finalAmount,
             pilar: pilar,
             cuenta: cuenta,
-            categoria: categoria,
+            categoria: pilar === 'Gastar' ? categoria : pilar, // Use Pillar name as category for consistency, or keep 'Otros'
             tag: tag ? tag.trim() : null,
-            descripcion: categoria || 'Movimiento',
+            descripcion: (pilar === 'Gastar' ? categoria : tag) || 'Movimiento', // Use Tag as description for Income
             fecha: transactionToEdit?.fecha || new Date().toISOString(),
             user_id: user.id,
             moneda_original: inputCurrency,
             monto_original: inputAmount,
-            // Rate = COP Value / Original Value
-            tasa_cambio: inputAmount !== 0 ? finalAmount / inputAmount : 1
+            tasa_cambio: inputAmount !== 0 ? finalAmount / inputAmount : 1,
+            meta_id: (pilar === 'Ahorrar' || pilar === 'Invertir') ? selectedGoalId : null
         };
 
         try {
             let error;
             if (transactionToEdit) {
-                // Update
                 const { error: updateError } = await supabase
                     .from('transacciones')
                     .update(transactionData)
                     .eq('id', transactionToEdit.id);
                 error = updateError;
             } else {
-                // Insert
                 const { error: insertError } = await supabase
                     .from('transacciones')
                     .insert([transactionData]);
@@ -230,13 +203,11 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             if (error) throw error;
 
             if (onSuccess) onSuccess();
-            // Only reset if NOT editing (editing usually closes the form or resets state via parent)
-            // But here we are just clearing the form for next use.
             if (!transactionToEdit) resetForm();
 
         } catch (error: any) {
             console.error(error);
-            alert(`Error al guardar: ${error.message || error.error_description || "Verifica la consola"}`);
+            alert(`Error al guardar: ${error.message || error.error_description}`);
         } finally {
             setLoading(false);
         }
@@ -302,6 +273,24 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
                 </div>
             </div>
 
+            {/* Link to Goal - Only for Saving/Investing */}
+            {['Ahorrar', 'Invertir'].includes(pilar) && (
+                <div className="animate-fade-in">
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Vincular a Meta (Opcional)</label>
+                    <select
+                        value={selectedGoalId || ''}
+                        onChange={(e) => setSelectedGoalId(Number(e.target.value) || null)}
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none border border-transparent focus:border-slate-200 dark:focus:border-slate-700 text-sm dark:text-white"
+                    >
+                        <option value="">-- Sin vincular --</option>
+                        {goals.map(g => (
+                            <option key={g.id} value={g.id}>{g.nombre}</option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-slate-400 mt-1">Si seleccionas una meta, este movimiento sumará a su progreso automáticamente.</p>
+                </div>
+            )}
+
             {/* Category / Tag */}
             {pilar === 'Gastar' ? (
                 <div className="animate-fade-in">
@@ -335,14 +324,14 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
                 </div>
             ) : (
                 <div className="animate-fade-in">
-                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Etiqueta (Opcional)</label>
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Etiqueta / Descripción</label>
                     <input
                         ref={categoriaRef}
                         type="text"
-                        placeholder="Ej. Cripto, Salario, Regalo..."
+                        placeholder="Ej. Salario, Rendimientos, Regalo..."
                         className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none border border-transparent focus:border-slate-200 dark:focus:border-slate-700 text-sm dark:text-white placeholder:text-slate-400"
-                        value={categoria}
-                        onChange={(e) => setCategoria(e.target.value)}
+                        value={tag}
+                        onChange={(e) => setTag(e.target.value)}
                     />
                 </div>
             )

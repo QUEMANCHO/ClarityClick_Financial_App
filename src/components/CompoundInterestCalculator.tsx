@@ -18,10 +18,10 @@ export default function CompoundInterestCalculator() {
     const formatNumber = (value: string, curr: string) => {
         if (!value) return '';
         const { group, decimal } = getSeparators(curr);
-        let raw = value.split(group).join('');
+        const raw = value.split(group).join('');
         const parts = raw.split(decimal);
-        let integerPart = parts[0].replace(/\D/g, '');
-        let decimalPart = parts.length > 1 ? parts[1].replace(/\D/g, '') : null;
+        const integerPart = parts[0].replace(/\D/g, '');
+        const decimalPart = parts.length > 1 ? parts[1].replace(/\D/g, '') : null;
         const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, group);
         if (decimalPart !== null) return `${formattedInteger}${decimal}${decimalPart}`;
         return formattedInteger;

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Target, TrendingUp, ShieldCheck } from 'lucide-react';
-import InvestmentGoals from './InvestmentGoals';
+import GoalDashboard from '../modules/Estrategia/Metas/components/GoalDashboard';
 import CompoundInterestCalculator from './CompoundInterestCalculator';
 
 export default function StrategyView() {
@@ -75,7 +75,7 @@ export default function StrategyView() {
 
                 {activeSection === 'goals' && (
                     <div ref={goalsRef} className="animate-fade-in">
-                        <InvestmentGoals />
+                        <GoalDashboard />
                     </div>
                 )}
                 {activeSection === 'simulator' && (
