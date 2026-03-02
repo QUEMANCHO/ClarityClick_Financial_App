@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Save, Loader2, Edit2 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
 import { CurrencyCode, PillarType, GoalWithIntelligence } from '../types';
 import { useCurrency } from '../../../../context/CurrencyContext';
+import { addDays, addMonths, addWeeks, addYears, differenceInDays, differenceInMonths, differenceInWeeks, differenceInYears } from 'date-fns';
 
 interface CreateGoalModalProps {
     isOpen: boolean;
@@ -20,8 +21,10 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
 
     // New Planning Inputs
     const [aporteAhorro, setAporteAhorro] = useState('');
-    const [aporteInversion, setAporteInversion] = useState('');
     const [frecuencia, setFrecuencia] = useState<'Diario' | 'Semanal' | 'Quincenal' | 'Mensual' | 'Anual'>('Mensual');
+
+    // Flags to prevent infinite loops during bidirectional sync
+    const lastEditedField = useRef<'fecha' | 'ahorro' | 'monto_frecuencia' | null>(null);
 
     const { convertAmount } = useCurrency();
 
@@ -31,6 +34,7 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
     // Reset or Fill form when opening
     useEffect(() => {
         if (isOpen) {
+            lastEditedField.current = null; // Reset edit tracking
             if (goalToEdit) {
                 // Edit Mode
                 setNombre(goalToEdit.meta_nombre);
@@ -40,17 +44,15 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
                 setFechaLimite(dateVal);
                 setPilar(goalToEdit.pilar_principal as PillarType);
                 setAporteAhorro(goalToEdit.aporte_ahorro_base?.toString() || '');
-                setAporteInversion(goalToEdit.aporte_inversion_base?.toString() || '');
                 setFrecuencia(goalToEdit.aporte_frecuencia || 'Mensual');
             } else {
                 // Create Mode
                 setNombre('');
                 setMonto('');
                 setMoneda('COP');
-                setFechaLimite('');
+                setFechaLimite(''); // Reset to empty instead of next year
                 setPilar('Ahorrar');
                 setAporteAhorro('');
-                setAporteInversion('');
                 setFrecuencia('Mensual');
             }
 
@@ -101,6 +103,89 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
         }
     }, [isOpen, goalToEdit]);
 
+
+    // --- BIDIRECTIONAL SYNC LOGIC ---
+
+    // 1. Recalculate Ahorro when Fecha, Monto, or Frecuencia change manually
+    useEffect(() => {
+        if (!isOpen) return;
+        const numMonto = parseFloat(monto) || 0;
+
+        // If the user manually edited the Ahorro field, we DON'T want to override it right away
+        // UNLESS they changed the Monto or Frecuencia (in which case Ahorro needs an update).
+        if (lastEditedField.current === 'ahorro' && numMonto > 0 && fechaLimite) {
+            // we skip auto-calc of ahorro because user is focused on typing ahorro.
+            return;
+        }
+
+        if (numMonto > 0 && fechaLimite) {
+            const today = new Date();
+            const targetDate = new Date(fechaLimite);
+
+            if (targetDate <= today) {
+                // Future date required
+                return;
+            }
+
+            let periods = 1;
+            switch (frecuencia) {
+                case 'Diario': periods = Math.max(1, differenceInDays(targetDate, today)); break;
+                case 'Semanal': periods = Math.max(1, differenceInWeeks(targetDate, today)); break;
+                case 'Quincenal': periods = Math.max(1, differenceInWeeks(targetDate, today) * 2); break;
+                case 'Mensual': periods = Math.max(1, differenceInMonths(targetDate, today)); break;
+                case 'Anual': periods = Math.max(1, differenceInYears(targetDate, today)); break;
+            }
+
+            const calculatedAhorro = Math.ceil(numMonto / periods);
+            setAporteAhorro(calculatedAhorro.toString());
+        }
+    }, [monto, fechaLimite, frecuencia, isOpen]);
+
+    // 2. Recalculate Fecha when Ahorro changes manually
+    useEffect(() => {
+        if (!isOpen) return;
+        const numMonto = parseFloat(monto) || 0;
+        const numAhorro = parseFloat(aporteAhorro) || 0;
+
+        if (lastEditedField.current === 'ahorro' && numMonto > 0 && numAhorro > 0) {
+            const periodsNeeded = Math.ceil(numMonto / numAhorro);
+            const today = new Date();
+            let newTargetDate = today;
+
+            switch (frecuencia) {
+                case 'Diario': newTargetDate = addDays(today, periodsNeeded); break;
+                case 'Semanal': newTargetDate = addWeeks(today, periodsNeeded); break;
+                case 'Quincenal': newTargetDate = addWeeks(today, periodsNeeded / 2); break; // roughly
+                case 'Mensual': newTargetDate = addMonths(today, periodsNeeded); break;
+                case 'Anual': newTargetDate = addYears(today, periodsNeeded); break;
+            }
+
+            setFechaLimite(newTargetDate.toISOString().split('T')[0]);
+        }
+    }, [aporteAhorro, monto, frecuencia, isOpen]);
+
+    // Event Handlers for tracking user intent
+    const handleFechaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        lastEditedField.current = 'fecha';
+        setFechaLimite(e.target.value);
+    };
+
+    const handleAhorroChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        lastEditedField.current = 'ahorro';
+        setAporteAhorro(e.target.value.replace(/\D/g, ''));
+    };
+
+    const handleMontoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        lastEditedField.current = 'monto_frecuencia';
+        setMonto(e.target.value.replace(/\D/g, ''));
+    };
+
+    const handleFrecuenciaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        lastEditedField.current = 'monto_frecuencia';
+        setFrecuencia(e.target.value as any);
+    }
+    // ---------------------------------
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -111,12 +196,11 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
 
             const goalData = {
                 nombre: nombre,
-                monto_objetivo: parseFloat(monto),
+                monto_objetivo: parseFloat(monto) || 0,
                 moneda: moneda,
                 fecha_limite: fechaLimite,
                 pilar_principal: pilar,
                 aporte_ahorro_base: parseFloat(aporteAhorro) || 0,
-                aporte_inversion_base: parseFloat(aporteInversion) || 0,
                 aporte_frecuencia: frecuencia
             };
 
@@ -183,8 +267,7 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
     // Calculamos equivalente mensual on-the-fly para el feedback
     const getMonthlyEquivalent = () => {
         const a = parseFloat(aporteAhorro) || 0;
-        const i = parseFloat(aporteInversion) || 0;
-        const totalBase = a + i;
+        const totalBase = a;
         if (totalBase === 0) return 0;
 
         switch (frecuencia) {
@@ -201,11 +284,11 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
         if (newMoneda === moneda) return;
         if (monto) setMonto(Math.round(convertAmount(parseFloat(monto), moneda, newMoneda)).toString());
         if (aporteAhorro) setAporteAhorro(Math.round(convertAmount(parseFloat(aporteAhorro), moneda, newMoneda)).toString());
-        if (aporteInversion) setAporteInversion(Math.round(convertAmount(parseFloat(aporteInversion), moneda, newMoneda)).toString());
         setMoneda(newMoneda);
     };
 
     const capacidadNetaMoneda = capacidadNeta !== null ? convertAmount(capacidadNeta, 'COP', moneda) : null;
+    const isOverBudget = capacidadNetaMoneda !== null && equivalentMonthly > capacidadNetaMoneda;
 
     // Formateador visual
     const formatDisplay = (val: string) => {
@@ -254,7 +337,7 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
                                 required
                                 placeholder="0"
                                 value={formatDisplay(monto)}
-                                onChange={(e) => setMonto(e.target.value.replace(/\D/g, ''))}
+                                onChange={handleMontoChange}
                                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono font-medium text-slate-800 dark:text-white text-sm"
                             />
                         </div>
@@ -277,28 +360,30 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
                                 type="date"
                                 required
                                 value={fechaLimite}
-                                onChange={(e) => setFechaLimite(e.target.value)}
+                                onChange={handleFechaChange}
                                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-800 dark:text-white text-sm"
                             />
                         </div>
                     </div>
 
-                    {/* SECCIÓN DE APORTE PLANEADO (Compacta) */}
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                    {/* SECCIÓN DE APORTE PLANEADO */}
+                    <div className={`p-3 rounded-xl border transition-colors ${isOverBudget
+                        ? 'bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/50'
+                        : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                        } space-y-3`}>
                         <div className="flex items-center justify-between">
                             <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                <span className="text-emerald-500">⚡</span> Plan de Aportes
+                                <span className={isOverBudget ? "text-orange-500" : "text-emerald-500"}>⚡</span> Plan de Aportes Automático
                             </h3>
-                            <span className="text-[10px] text-slate-400">Opcional</span>
                         </div>
 
                         <div className="grid grid-cols-12 gap-3">
-                            {/* Frecuencia (Nueva) */}
-                            <div className="col-span-12 sm:col-span-4">
+                            {/* Frecuencia */}
+                            <div className="col-span-12 sm:col-span-6">
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Frecuencia</label>
                                 <select
                                     value={frecuencia}
-                                    onChange={(e) => setFrecuencia(e.target.value as any)}
+                                    onChange={handleFrecuenciaChange}
                                     className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-700 dark:text-white"
                                 >
                                     <option value="Diario">Diario</option>
@@ -309,67 +394,43 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
                                 </select>
                             </div>
                             {/* Ahorro Planeado */}
-                            <div className="col-span-6 sm:col-span-4">
-                                <label className="block text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-1">Ahorro ($)</label>
+                            <div className="col-span-12 sm:col-span-6">
+                                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isOverBudget ? 'text-orange-600 dark:text-orange-400' : 'text-blue-500'}`}>Ahorro ($)</label>
                                 <input
                                     type="text"
                                     inputMode="numeric"
                                     placeholder="0"
                                     value={formatDisplay(aporteAhorro)}
-                                    onChange={(e) => setAporteAhorro(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-sm"
-                                />
-                            </div>
-                            {/* Inversión Planeada */}
-                            <div className="col-span-6 sm:col-span-4">
-                                <label className="block text-[10px] font-bold text-purple-500 uppercase tracking-wider mb-1">Inversión ($)</label>
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    placeholder="0"
-                                    value={formatDisplay(aporteInversion)}
-                                    onChange={(e) => setAporteInversion(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm"
+                                    onChange={handleAhorroChange}
+                                    className={`w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border focus:ring-2 outline-none transition-all font-mono text-sm ${isOverBudget
+                                        ? 'border-orange-300 dark:border-orange-700 focus:ring-orange-500 text-orange-900 dark:text-orange-100'
+                                        : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500 text-slate-900 dark:text-white'
+                                        }`}
                                 />
                             </div>
                         </div>
 
                         {/* Proactive Feedback Label */}
                         {equivalentMonthly > 0 && capacidadNetaMoneda !== null && (
-                            <div className={`text-[11px] p-2 rounded-lg flex items-start gap-2 ${equivalentMonthly > capacidadNetaMoneda
-                                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800'
+                            <div className={`text-[11px] p-2 rounded-lg flex items-start gap-2 transition-colors ${isOverBudget
+                                ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800'
                                 : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 border border-blue-100 dark:border-blue-800'
                                 }`}>
-                                <span className="mt-0.5">{equivalentMonthly > capacidadNetaMoneda ? '⚠️' : '💡'}</span>
-                                <p>
-                                    Esto equivale a <strong>{equivalentMonthly.toLocaleString('es-CO')} {moneda} mensuales</strong>.
-                                    Tu capacidad neta actual es de <strong>{capacidadNetaMoneda.toLocaleString('es-CO')} {moneda}</strong>.
-                                </p>
+                                <span className="mt-0.5">{isOverBudget ? '⚠️' : '💡'}</span>
+                                <div>
+                                    <p>
+                                        Esto equivale a <strong>{equivalentMonthly.toLocaleString('es-CO')} {moneda} mensuales</strong>.
+                                        Tu capacidad neta actual es de <strong>{capacidadNetaMoneda.toLocaleString('es-CO')} {moneda}</strong>.
+                                    </p>
+                                    {isOverBudget && (
+                                        <p className="mt-1 font-medium text-orange-700 dark:text-orange-400">
+                                            Sugerencia: Reduce la cuota mensual para que la fecha límite se extienda automáticamente, o reduce el monto objetivo.
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
-
-                    {/* Pilar Principal - Compact Grid (REMOVED PARA SIMPLICIDAD) */}
-                    {/* 
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pilar de Impacto</label>
-                        <div className="grid grid-cols-4 gap-2">
-                            {(['Ganar', 'Gastar', 'Ahorrar', 'Invertir'] as PillarType[]).map((p) => (
-                                <button
-                                    key={p}
-                                    type="button"
-                                    onClick={() => setPilar(p)}
-                                    className={`px-2 py-2 rounded-lg text-xs font-bold border transition-all truncate ${pilar === p
-                                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-600 dark:text-blue-400'
-                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'
-                                        }`}
-                                >
-                                    {p}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    */}
 
                     <div className="pt-2">
                         <button
@@ -382,7 +443,7 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
                                 }`}
                         >
                             {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Save size={18} />}
-                            {goalToEdit ? 'Actualizar Meta' : 'Crear Meta'}
+                            {goalToEdit ? 'Actualizar Meta' : 'Guardar Meta y Plan'}
                         </button>
                     </div>
 
