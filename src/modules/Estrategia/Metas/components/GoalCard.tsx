@@ -174,9 +174,18 @@ export default function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
                         className={`h-full rounded-full transition-all duration-1000 ease-out ${estado === 'CRITICAL' ? 'bg-red-500' : 'bg-blue-600'}`}
                     />
                 </div>
-                <div className="flex justify-between mt-1 text-[10px] text-slate-400">
+                <div className="flex justify-between mt-1 text-[10px] text-slate-400 items-start">
                     <span>{formatCurrency(goal.monto_actual)}</span>
-                    <span>Meta: {formatCurrency(goal.monto_objetivo)}</span>
+                    <div className="text-right">
+                        <span>Meta: {formatCurrency(goal.monto_objetivo)}</span>
+                        {goal.aporte_ahorro_base > 0 && (
+                            <div className="mt-0.5 text-blue-500 dark:text-blue-400 font-medium flex items-center justify-end gap-1">
+                                <span>Cuota:</span>
+                                <span className="font-bold">{formatCurrency(goal.aporte_ahorro_base)}</span>
+                                <span className="lowercase">/ {goal.aporte_frecuencia}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
