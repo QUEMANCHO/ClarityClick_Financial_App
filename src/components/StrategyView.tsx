@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Target, TrendingUp, ShieldCheck } from 'lucide-react';
 import GoalDashboard from '../modules/Estrategia/Metas/components/GoalDashboard';
 import CompoundInterestCalculator from './CompoundInterestCalculator';
+import DebtDashboard from '../modules/Estrategia/Deudas/components/DebtDashboard';
 
 export default function StrategyView() {
-    const [activeSection, setActiveSection] = useState<'goals' | 'simulator' | null>('goals');
+    const [activeSection, setActiveSection] = useState<'goals' | 'simulator' | 'debts'>('goals');
 
     const goalsRef = useRef<HTMLDivElement>(null);
     const simulatorRef = useRef<HTMLDivElement>(null);
+    const debtsRef = useRef<HTMLDivElement>(null);
 
     // Removed auto-scroll logic to prevent mobile glitch
     useEffect(() => {
@@ -56,12 +58,21 @@ export default function StrategyView() {
                     <p className="text-emerald-100 text-sm">Calculadora de interés compuesto y proyecciones.</p>
                 </div>
 
-                <div className="bg-slate-800 dark:bg-slate-900 rounded-2xl p-6 text-white shadow-lg border border-slate-700 opacity-60 cursor-not-allowed">
-                    <div className="bg-white/10 p-3 rounded-xl w-fit mb-4">
+                <div
+                    onClick={() => {
+                        setActiveSection('debts');
+                        setTimeout(() => debtsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+                    }}
+                    className={`rounded-2xl p-6 text-white shadow-lg transition-all cursor-pointer transform hover:scale-105
+                    ${activeSection === 'debts'
+                            ? 'bg-rose-600 ring-4 ring-rose-200 dark:ring-rose-900 scale-105'
+                            : 'bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-xl'}`}
+                >
+                    <div className="bg-white/20 p-3 rounded-xl w-fit mb-4">
                         <ShieldCheck size={24} />
                     </div>
-                    <h3 className="text-xl font-bold mb-2">Perfil de Riesgo</h3>
-                    <p className="text-slate-400 text-sm">Próximamente</p>
+                    <h3 className="text-xl font-bold mb-2">Gestión de Deudas</h3>
+                    <p className="text-rose-100 text-sm">Método Bola de Nieve para acelerar tu libertad.</p>
                 </div>
             </div>
 
@@ -81,6 +92,11 @@ export default function StrategyView() {
                 {activeSection === 'simulator' && (
                     <div ref={simulatorRef} className="animate-fade-in">
                         <CompoundInterestCalculator />
+                    </div>
+                )}
+                {activeSection === 'debts' && (
+                    <div ref={debtsRef} className="animate-fade-in">
+                        <DebtDashboard />
                     </div>
                 )}
             </div>

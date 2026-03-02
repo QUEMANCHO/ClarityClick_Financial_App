@@ -5,8 +5,8 @@ export default defineConfig({
     plugins: [
         tailwindcss(),
         VitePWA({
-            registerType: 'autoUpdate',
-            injectRegister: null, // Defer to manual registration in main.tsx
+            registerType: 'prompt', // <-- Cambiado de autoUpdate a prompt (Botón Mágico)
+            injectRegister: 'auto', // Inject standard registration to support virtual:pwa-register/react
             includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
             manifest: {
                 id: '/',

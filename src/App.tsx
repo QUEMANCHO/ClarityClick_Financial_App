@@ -15,6 +15,7 @@ import Configuration from './components/Configuration';
 import StrategyView from './components/StrategyView';
 import WelcomeModal from './components/WelcomeModal';
 import InstallPrompt from './components/InstallPrompt';
+import ReloadPrompt from './components/ReloadPrompt';
 import './index.css';
 import { Transaction } from './types';
 import { Menu } from 'lucide-react';
@@ -68,6 +69,7 @@ const App: React.FC = () => {
 
     profileCheckedRef.current = session.user.id;
     checkProfile(session.user.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
 
   const checkProfile = async (userId: string) => {
@@ -115,6 +117,7 @@ const App: React.FC = () => {
 
       if (error) throw error;
       setShowOnboarding(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Error updating profile:', error);
       alert(`Error al guardar perfil: ${error.message}`);
@@ -237,6 +240,7 @@ const App: React.FC = () => {
         <>
           {showOnboarding && <WelcomeModal onComplete={handleOnboardingComplete} />}
           <InstallPrompt />
+          <ReloadPrompt />
 
           <Sidebar
             activeTab={activeTab}
@@ -245,9 +249,7 @@ const App: React.FC = () => {
             currentTheme={theme}
             userEmail={session.user.email}
             userName={userName}
-            // @ts-ignore
             isOpen={isMobileMenuOpen}
-            // @ts-ignore
             onClose={closeMobileMenu}
           />
 
