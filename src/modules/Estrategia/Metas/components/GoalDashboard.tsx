@@ -3,16 +3,20 @@ import { Target, AlertTriangle, Plus, Zap, X } from 'lucide-react';
 import { useGoalIntelligence } from '../hooks/useGoalIntelligence';
 import GoalCard from './GoalCard';
 import CreateGoalModal from './CreateGoalModal';
+import AssignFuelModal from './AssignFuelModal';
 import { supabase } from '../../../../lib/supabaseClient';
 import { GoalWithIntelligence } from '../types';
 
 export default function GoalDashboard() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isAssignFuelModalOpen, setIsAssignFuelModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<GoalWithIntelligence | null>(null);
 
     // 2. Fetch Intelligence & Goals
     const { goals, loading, error, refresh } = useGoalIntelligence();
     const [newFuelDetected, setNewFuelDetected] = useState(false);
+    const [fuelDetectedAmount, setFuelDetectedAmount] = useState<number>(0);
+    const [fuelDetectedTransactionId, setFuelDetectedTransactionId] = useState<number | null>(null);
 
     // 3. Monitor for "New Fuel"
     useEffect(() => {
@@ -30,14 +34,24 @@ export default function GoalDashboard() {
 
             const { data } = await supabase
                 .from('transacciones')
-                .select('cantidad')
+                .select('id, cantidad, excluir_de_ia')
                 .eq('user_id', user.id)
                 .eq('pilar', 'Ganar')
                 .gte('fecha', lastWeek.toISOString());
 
             // Check if any recent income > 50% of monthly average
-            if (data && data.some(t => t.cantidad > avgIncome * 0.5)) {
-                setNewFuelDetected(true);
+            if (data) {
+                // Filtramos por las que no han sido excluidas por la IA
+                const extraordinaryTranscations = data.filter(t => t.cantidad > avgIncome * 0.5 && t.excluir_de_ia !== true);
+                if (extraordinaryTranscations.length > 0) {
+                    setNewFuelDetected(true);
+
+                    // Ordenamos para agarrar la más grande de las recientes
+                    const largestTransaction = extraordinaryTranscations.reduce((max, obj) => obj.cantidad > max.cantidad ? obj : max, extraordinaryTranscations[0]);
+
+                    setFuelDetectedAmount(largestTransaction.cantidad);
+                    setFuelDetectedTransactionId(largestTransaction.id);
+                }
             }
         };
         checkFuel();
@@ -126,13 +140,11 @@ export default function GoalDashboard() {
                         <div>
                             <h3 className="font-bold text-lg leading-tight">¡Detección de Nuevo Combustible!</h3>
                             <p className="text-sm opacity-90 mt-0.5">
-                                Registraste ingresos superiores al 50% de tu promedio mensual.
+                                Registraste un ingreso superior al 50% de tu promedio mensual.
                             </p>
                             <button
                                 onClick={() => {
-                                    setNewFuelDetected(false);
-                                    setEditingGoal(null);
-                                    setIsCreateModalOpen(true);
+                                    setIsAssignFuelModalOpen(true);
                                 }}
                                 className="mt-3 px-4 py-1.5 bg-white text-teal-700 hover:bg-teal-50 rounded-full text-xs font-bold transition-colors shadow-sm"
                             >
@@ -189,6 +201,27 @@ export default function GoalDashboard() {
                 onClose={closeModal}
                 onGoalCreated={refresh}
                 goalToEdit={editingGoal}
+            />
+
+            {/* Modal de Asignación de Combustible */}
+            <AssignFuelModal
+                isOpen={isAssignFuelModalOpen}
+                onClose={() => {
+                    setIsAssignFuelModalOpen(false);
+                    setNewFuelDetected(false); // Ocultar alerta si cierra
+                }}
+                onGoalAssigned={() => {
+                    refresh();
+                    setNewFuelDetected(false);
+                }}
+                onCreateNewGoal={() => {
+                    setIsAssignFuelModalOpen(false);
+                    setEditingGoal(null);
+                    setIsCreateModalOpen(true);
+                }}
+                detectedAmount={fuelDetectedAmount}
+                detectedTransactionId={fuelDetectedTransactionId}
+                goals={goals}
             />
         </div>
     );

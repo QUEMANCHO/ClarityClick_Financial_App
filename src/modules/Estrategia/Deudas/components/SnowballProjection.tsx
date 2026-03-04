@@ -18,7 +18,7 @@ export default function SnowballProjection({ debts, totalMinimo }: SnowballProje
 
     const calculaSnowball = (listaDeudas: Debt[], aporteAdicionalGlobal: number) => {
         // Deep copy to mutate during simulation
-        let amortizacionList = listaDeudas.map(d => ({ ...d }));
+        const amortizacionList = listaDeudas.map(d => ({ ...d }));
         let meses = 0;
         let saldoGlobal = amortizacionList.reduce((acc, curr) => acc + curr.saldo_actual, 0);
         let rolloverExtra = 0; // Dinero liberado de cuotas mínimas pagadas sumado al extra global
@@ -28,7 +28,7 @@ export default function SnowballProjection({ debts, totalMinimo }: SnowballProje
             let pagoRealizadoEnEsteMes_ParaAdicional = aporteAdicionalGlobal + rolloverExtra;
 
             for (let i = 0; i < amortizacionList.length; i++) {
-                let deuda = amortizacionList[i];
+                const deuda = amortizacionList[i];
                 if (deuda.saldo_actual <= 0) continue; // Ya se pagó
 
                 // 1. Cargo de intereses (Tasa Efectiva Mensual directa)
@@ -37,13 +37,13 @@ export default function SnowballProjection({ debts, totalMinimo }: SnowballProje
                 deuda.saldo_actual += cargoInteres;
 
                 // 2. Aplicar cuota mínima
-                let pago = Math.min(deuda.cuota_minima, deuda.saldo_actual);
+                const pago = Math.min(deuda.cuota_minima, deuda.saldo_actual);
                 deuda.saldo_actual -= pago;
 
                 // 3. Aplicar pago acelerado si es la deuda actual en la "Bola de Nieve"
                 // El dinero fluye de la deuda 0 (hasta que muera) hacia la deuda 1, 2...
                 if (pagoRealizadoEnEsteMes_ParaAdicional > 0 && deuda.saldo_actual > 0) {
-                    let extraApp = Math.min(pagoRealizadoEnEsteMes_ParaAdicional, deuda.saldo_actual);
+                    const extraApp = Math.min(pagoRealizadoEnEsteMes_ParaAdicional, deuda.saldo_actual);
                     deuda.saldo_actual -= extraApp;
                     pagoRealizadoEnEsteMes_ParaAdicional -= extraApp;
                 }

@@ -234,7 +234,7 @@ export default function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
                     className="group w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold transition-all duration-300 active:scale-[0.98] shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 flex items-center justify-center gap-2 border border-blue-500/50"
                 >
                     <span className="flex items-center gap-2">
-                        {estado === 'CRITICAL' ? 'Corregir Plan' : estado === 'OPTIMIZED' ? 'Acelerar Meta' : 'Obtener Estrategia de Mejora'}
+                        {estado === 'CRITICAL' ? 'Ajustar Plan' : estado === 'OPTIMIZED' ? 'Acelerar Meta' : 'Obtener Estrategia de Mejora'}
                         <span className="group-hover:rotate-12 transition-transform duration-300 text-blue-200">✨</span>
                     </span>
                 </button>
