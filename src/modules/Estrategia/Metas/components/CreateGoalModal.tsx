@@ -64,17 +64,20 @@ export default function CreateGoalModal({ isOpen, onClose, onGoalCreated, goalTo
                 // Gross Capacity
                 const { data: txs } = await supabase
                     .from('transacciones')
-                    .select('pilar, cantidad, fecha')
+                    .select('pilar, cantidad, fecha, excluir_de_ia')
                     .eq('user_id', user.id);
 
                 let inTotal = 0; let outTotal = 0;
                 const months = new Set<string>();
                 txs?.forEach(t => {
+                    // Ignorar ganancias que el usuario marcó como "Es para otra cosa"
+                    if (t.pilar === 'Ganar' && t.excluir_de_ia) return;
+
                     if (t.pilar === 'Ganar') inTotal += t.cantidad;
                     if (t.pilar === 'Gastar') outTotal += t.cantidad;
                     months.add(t.fecha.substring(0, 7)); // YYYY-MM
                 });
-                const mc = months.size > 0 ? months.size : 1;
+                const mc = Math.max(months.size, 1);
                 const gross = (inTotal - outTotal) / mc;
 
                 // Substract other goals
