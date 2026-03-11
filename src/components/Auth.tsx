@@ -5,6 +5,7 @@ import { Mail, Lock, Loader2, ArrowRight, LogIn, UserPlus, Eye, EyeOff } from 'l
 export default function Auth() {
     const [loading, setLoading] = useState(false);
     const [isSignUp, setIsSignUp] = useState(false);
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -16,7 +17,15 @@ export default function Auth() {
         setErrorMsg(null);
 
         try {
-            if (isSignUp) {
+            if (isForgotPassword) {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin,
+                });
+                if (error) throw error;
+                alert('¡Enlace de recuperación enviado! Revisa tu buzón de correo.');
+                setIsForgotPassword(false);
+                setEmail('');
+            } else if (isSignUp) {
                 const { error } = await supabase.auth.signUp({
                     email,
                     password,
@@ -45,6 +54,7 @@ export default function Auth() {
         if (msg.includes('User already registered')) return 'Este correo ya está registrado.';
         if (msg.includes('Password should be')) return 'La contraseña es muy débil (mínimo 6 caracteres).';
         if (msg.includes('Email not confirmed')) return 'Por favor confirma tu correo electrónico antes de ingresar.';
+        if (msg.includes('For security purposes, you can only request this once every 60 seconds')) return 'Por seguridad, debes esperar 60 segundos antes de enviar otro correo de recuperación.';
         return `Error: ${msg}`; // Show actual error if unknown
     };
 
@@ -69,8 +79,9 @@ export default function Auth() {
 
                     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-6">
                         <button
-                            onClick={() => setIsSignUp(false)}
-                            className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${!isSignUp
+                            type="button"
+                            onClick={() => { setIsSignUp(false); setIsForgotPassword(false); setErrorMsg(null); }}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${!isSignUp && !isForgotPassword
                                 ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                                 }`}
@@ -78,7 +89,8 @@ export default function Auth() {
                             <LogIn size={16} /> Iniciar Sesión
                         </button>
                         <button
-                            onClick={() => setIsSignUp(true)}
+                            type="button"
+                            onClick={() => { setIsSignUp(true); setIsForgotPassword(false); setErrorMsg(null); }}
                             className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${isSignUp
                                 ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
@@ -89,9 +101,9 @@ export default function Auth() {
                     </div>
 
                     <form onSubmit={handleAuth} className="space-y-4">
-                        <div>
+                        <div className="mt-8">
                             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 ml-1 uppercase">Correo Electrónico</label>
-                            <div className="relative group">
+                            <div className="relative group mb-4">
                                 <Mail className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
                                 <input
                                     type="email"
@@ -104,30 +116,43 @@ export default function Auth() {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 ml-1 uppercase">Contraseña</label>
-                            <div className="relative group">
-                                <Lock className="absolute left-3 top-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    required
-                                    placeholder="••••••••"
-                                    className="w-full pl-10 pr-12 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all dark:text-white dark:placeholder-slate-500"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1"
-                                >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
+                        {!isForgotPassword && (
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 ml-1 uppercase">Contraseña</label>
+                                <div className="relative group">
+                                    <Lock className="absolute left-3 top-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        required
+                                        placeholder="••••••••"
+                                        className="w-full pl-10 pr-12 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all dark:text-white dark:placeholder-slate-500"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1"
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                                {!isSignUp && (
+                                    <div className="text-right mt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setIsForgotPassword(true); setErrorMsg(null); }}
+                                            className="text-sm font-bold text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+                                        >
+                                            ¿Olvidaste tu contraseña?
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                        )}
 
                         {errorMsg && (
-                            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-xl border border-red-100 dark:border-red-800/30 animate-fade-in">
+                            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-xl border border-red-100 dark:border-red-800/30 animate-fade-in mt-2 mb-4">
                                 {errorMsg}
                             </div>
                         )}
@@ -135,7 +160,7 @@ export default function Auth() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className={`w-full py-4 rounded-xl font-bold text-lg text-white flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all
+                            className={`w-full py-4 rounded-xl font-bold text-lg text-white flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all mt-4
                                 ${loading
                                     ? 'bg-slate-400 cursor-not-allowed'
                                     : 'bg-gradient-to-r from-slate-800 to-slate-900 dark:from-white dark:to-slate-200 dark:text-slate-900'
@@ -145,10 +170,21 @@ export default function Auth() {
                                 <Loader2 size={20} className="animate-spin" />
                             ) : (
                                 <>
-                                    {isSignUp ? 'Crear Cuenta' : 'Ingresar'} <ArrowRight size={18} />
+                                    {isForgotPassword ? 'Enviar Enlace' : isSignUp ? 'Crear Cuenta' : 'Ingresar'} <ArrowRight size={18} />
                                 </>
                             )}
                         </button>
+                        {isForgotPassword && (
+                            <div className="text-center mt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsForgotPassword(false)}
+                                    className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                                >
+                                    Volver al inicio de sesión
+                                </button>
+                            </div>
+                        )}
                     </form>
                 </div>
 

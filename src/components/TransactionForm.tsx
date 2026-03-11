@@ -98,7 +98,7 @@ export default function TransactionForm({ onSuccess, transactionToEdit, onCancel
             setCuenta(transactionToEdit.cuenta);
             setCategoria(transactionToEdit.categoria || 'Otros');
             setTag(transactionToEdit.tag || '');
-            // @ts-expect-error
+            // @ts-expect-error - meta_id is selectively loaded depending on database schema version
             if (transactionToEdit.meta_id) setSelectedGoalId(transactionToEdit.meta_id);
 
             setTimeout(() => {

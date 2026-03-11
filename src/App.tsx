@@ -16,6 +16,7 @@ import StrategyView from './components/StrategyView';
 import WelcomeModal from './components/WelcomeModal';
 import InstallPrompt from './components/InstallPrompt';
 import ReloadPrompt from './components/ReloadPrompt';
+import UpdatePassword from './components/UpdatePassword';
 import './index.css';
 import { Transaction } from './types';
 import { Menu } from 'lucide-react';
@@ -27,6 +28,7 @@ const App: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [initialPillar, setInitialPillar] = useState<string | undefined>(undefined);
+  const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
 
   // Ref to prevent double checking or loops
   const profileCheckedRef = useRef<string | null>(null);
@@ -50,8 +52,11 @@ const App: React.FC = () => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowPasswordRecovery(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -238,7 +243,10 @@ const App: React.FC = () => {
         <Auth />
       ) : (
         <>
-          {showOnboarding && <WelcomeModal onComplete={handleOnboardingComplete} />}
+          {showPasswordRecovery && (
+              <UpdatePassword onComplete={() => setShowPasswordRecovery(false)} />
+          )}
+          {showOnboarding && !showPasswordRecovery && <WelcomeModal onComplete={handleOnboardingComplete} />}
           <InstallPrompt />
           <ReloadPrompt />
 

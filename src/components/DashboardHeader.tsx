@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 interface DashboardHeaderProps {
     userName?: string;
@@ -15,11 +15,7 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 export default function DashboardHeader({ userName }: DashboardHeaderProps) {
-    const [quote, setQuote] = useState('');
-
-    useEffect(() => {
-        setQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
-    }, []);
+    const [quote] = useState(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
 
     return (
         <div className="mb-6 animate-fade-in flex flex-col md:flex-row justify-between items-start md:items-end gap-4">

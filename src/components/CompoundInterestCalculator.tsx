@@ -57,22 +57,6 @@ export default function CompoundInterestCalculator() {
         setMonthlyContributionStr(formatNumber(monthlyContributionStr, currency));
     }, [currency]);
 
-    useEffect(() => {
-        calculateCompoundInterest();
-    }, [initialAmountStr, monthlyContributionStr, interestRate, years, currency]); // Recalculate when strings change
-
-    const handleAmountChange = (val: string, setter: (v: string) => void) => {
-        if (val === '') {
-            setter('');
-            return;
-        }
-        const { group, decimal } = getSeparators(currency);
-        const lastChar = val.slice(-1);
-        if (/[0-9]/.test(lastChar) || lastChar === decimal || lastChar === group) {
-            setter(formatNumber(val, currency));
-        }
-    };
-
     const calculateCompoundInterest = () => {
         const initialAmount = parseToNumber(initialAmountStr, currency);
         const monthlyContribution = parseToNumber(monthlyContributionStr, currency);
@@ -105,6 +89,24 @@ export default function CompoundInterestCalculator() {
             finalBalance: Math.round(balance)
         });
     };
+
+    useEffect(() => {
+        calculateCompoundInterest();
+    }, [initialAmountStr, monthlyContributionStr, interestRate, years, currency]); // Recalculate when strings change
+
+    const handleAmountChange = (val: string, setter: (v: string) => void) => {
+        if (val === '') {
+            setter('');
+            return;
+        }
+        const { group, decimal } = getSeparators(currency);
+        const lastChar = val.slice(-1);
+        if (/[0-9]/.test(lastChar) || lastChar === decimal || lastChar === group) {
+            setter(formatNumber(val, currency));
+        }
+    };
+
+
 
     return (
         <div className="animate-fade-in space-y-6">

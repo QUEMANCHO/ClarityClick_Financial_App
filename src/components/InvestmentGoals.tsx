@@ -59,7 +59,9 @@ export default function InvestmentGoals() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchGoals();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchMonthlySavings();
     }, []);
 
